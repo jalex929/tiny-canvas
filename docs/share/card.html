@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@600&family=Work+Sans:wght@400;500;600&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: #fbfaf6;
+        color: #000052;
+        font-family: "Work Sans", sans-serif;
+      }
+      .card {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        padding: 76px 0 0 80px;
+      }
+      .card::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 10px;
+        background: #000052;
+      }
+      h1 {
+        font-family: "Source Code Pro", monospace;
+        font-weight: 600;
+        font-size: 74px;
+        letter-spacing: -2px;
+        line-height: 1;
+      }
+      .mark {
+        background: linear-gradient(transparent 62%, #ffd23f 62%, #ffd23f 92%, transparent 92%);
+      }
+      p.tag {
+        margin-top: 26px;
+        max-width: 520px;
+        font-size: 34px;
+        line-height: 1.25;
+        font-weight: 500;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 34px;
+        display: grid;
+        gap: 12px;
+        font-size: 22px;
+        color: #26266e;
+      }
+      li {
+        padding-left: 26px;
+        position: relative;
+      }
+      li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 9px;
+        width: 11px;
+        height: 11px;
+        background: #ffd23f;
+        border: 2px solid #000052;
+        border-radius: 3px;
+      }
+      .by {
+        position: absolute;
+        left: 80px;
+        bottom: 40px;
+        font-family: "Source Code Pro", monospace;
+        font-weight: 600;
+        font-size: 18px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+      }
+      .art {
+        position: absolute;
+        right: 80px;
+        top: 64px;
+        width: 470px;
+        height: 470px;
+        border: 3px solid #000052;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 14px 14px 0 #ffd23f;
+      }
+      .art img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1><span class="mark">Tiny</span> Canvas</h1>
+      <p class="tag">A pocket sketchbook in your browser.</p>
+      <ul>
+        <li>Glowing brushes, shapes and fill</li>
+        <li>A spirograph you turn by hand</li>
+        <li>Symmetry, kaleidoscopes, free, no sign-up</li>
+      </ul>
+      <div class="by">jayfox.design</div>
+      <div class="art"><img src="drawing-night.png" alt="" /></div>
+    </div>
+  </body>
+</html>

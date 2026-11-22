@@ -145,8 +145,6 @@ const ZOOM_STEP = 1.25;
  * segment bends toward the next point), so they're repainted each frame, not settled.
  */
 const UNSETTLED_UNITS = 2;
-/** A press on the Line button shorter than this toggles it on/off instead of holding. */
-const TAP_MS = 250;
 
 let strokeCounter = 0;
 const newStrokeId = () => `${Date.now().toString(36)}-${(strokeCounter++).toString(36)}`;
@@ -213,12 +211,8 @@ export function CanvasStage({
   const [penDown, setPenDown] = useState(false);
 
   // Straight lines: Shift (desktop), holding the Line button, or the Line button locked on.
-  // Lines go at any angle, snapping to flat, upright or 45° when close.
-  const [lineLocked, setLineLocked] = useState(false);
-  const [lineHeld, setLineHeld] = useState(false);
-  const lineButtonDown = useRef<{ at: number; usedForLine: boolean } | null>(null);
+  // Straight lines while using a brush: hold Shift (desktop). The Line tool does the rest.
   const lineRef = useRef({ active: false });
-  lineRef.current = { active: lineLocked || lineHeld };
 
   // Spirograph: how far the wheel has rolled, a ring being placed, and an active turn.
   const spiroAngleRef = useRef(0);
@@ -571,7 +565,6 @@ export function CanvasStage({
     const live = liveRef.current;
     if (!live) return;
     if (straight) {
-      if (lineButtonDown.current) lineButtonDown.current.usedForLine = true;
       const end = constrainLine(live.anchor, point, "any");
       // Keep any freehand part drawn before the line started.
       const before = live.stroke.points.slice(0, live.anchorIndex);
@@ -995,25 +988,6 @@ export function CanvasStage({
     setKeyboardActive(false);
   };
 
-  // ---- Line button: hold for straight lines, or tap to lock it on ---------------------------
-
-  const onLineDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    capture(event);
-    lineButtonDown.current = { at: performance.now(), usedForLine: false };
-    setLineHeld(true);
-  };
-  const onLineUp = () => {
-    const down = lineButtonDown.current;
-    lineButtonDown.current = null;
-    setLineHeld(false);
-    if (down && !down.usedForLine && performance.now() - down.at < TAP_MS) {
-      const next = !lineLocked;
-      setLineLocked(next);
-      onAnnounce(next ? "Straight lines on." : "Straight lines off.");
-    }
-  };
-
   // ---- Render -----------------------------------------------------------------------------
 
   const ready = view.s > 0;
@@ -1027,7 +1001,6 @@ export function CanvasStage({
   const guides = showGuides
     ? symmetryGuideLines(template.symmetry, template.symmetryCount, scene.width, scene.height)
     : [];
-  const lineOn = lineLocked || lineHeld;
 
   return (
     <div className="stage" ref={stageRef}>
@@ -1192,31 +1165,6 @@ export function CanvasStage({
       )}
 
       {contextBar && !quiet && <div className="context-bar">{contextBar}</div>}
-      <div
-        className={`line-tool ${compact ? "line-tool--compact" : ""}`}
-        hidden={quiet || tool !== "brush"}
-      >
-        <button
-          type="button"
-          className={`line-tool__button ${lineOn ? "is-on" : ""}`}
-          aria-pressed={lineLocked}
-          aria-label="Straight lines. Hold while drawing, or tap to keep on."
-          title="Hold while drawing, or tap to keep on (L). With a mouse, hold Shift."
-          onPointerDown={onLineDown}
-          onPointerUp={onLineUp}
-          onPointerCancel={onLineUp}
-          onClick={(e) => {
-            // Keyboard activation (pointer presses are handled above).
-            if (e.detail === 0) {
-              setLineLocked((v) => !v);
-            }
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <Icon name="line" />
-          <span className="line-tool__label">{lineOn ? "Line on" : "Line"}</span>
-        </button>
-      </div>
 
       {compact ? (
         // Phones zoom with a pinch; just offer a way back to the whole drawing.

@@ -185,10 +185,7 @@ async function inkBounds(page: Page) {
   });
 }
 
-test("Shift draws a straight line, and the Line button locks straight lines on", async ({
-  page,
-  isMobile,
-}) => {
+test("The Line tool and Shift both draw straight lines", async ({ page, isMobile }) => {
   test.skip(isMobile, "desktop");
   const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
   // A zigzag that ends level with where it started: straight-line mode turns it flat.
