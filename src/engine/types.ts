@@ -20,6 +20,7 @@ export const BRUSH_IDS = [
   "neon",
   "rainbow",
   "sparkle",
+  "hearts",
   "threads",
   "eraser",
 ] as const;

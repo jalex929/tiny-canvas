@@ -1,6 +1,6 @@
 # Tiny Canvas
 
-A pocket sketchbook in the browser. Pick from ten brushes, turn on kaleidoscope symmetry, choose
+A pocket sketchbook in the browser. Pick from eleven brushes, turn on kaleidoscope symmetry, choose
 from 40 colors or any color at all, and download your drawing as a PNG or JPG. Drawings save
 themselves in your browser, with no account needed.
 
@@ -9,14 +9,20 @@ themselves in your browser, with no account needed.
 ## Features
 
 - **Brushes:** Pen (stylus pressure), Marker (multiplies where it overlaps), Pencil (grain),
-  Spray, Calligraphy (angled nib), Neon (glow), Rainbow, Sparkle (scattered shapes), Threads
+  Spray, Calligraphy (angled nib), Neon (glow), Rainbow, Sparkle (scattered shapes), Hearts, Threads
   (web lines), Eraser.
-- **Effects:** symmetry off / mirror / four-way / radial ×6 / kaleidoscope ×12; size; opacity;
+- **Effects:** symmetry off / mirror / mirror ×4 / radial ×6 / kaleidoscope ×12, each shown as a
+  picture drawn by the engine, with guide lines on the canvas (not exported); size; opacity;
   background color (undoable).
 - **Color:** 40 named swatches, native color picker, hex entry, recent colors.
 - **History:** unlimited undo/redo; Clear is undoable, with an Undo button in the toast.
 - **Saving:** autosaves to this browser (IndexedDB) about 0.7 s after each change and when the
   tab is hidden. "My drawings" shelf to reopen or delete. The last drawing reopens on load.
+- **Zoom and pan:** 100–800%. Pinch on touch screens; trackpad pinch or Ctrl+scroll; scroll
+  to pan; middle-mouse drag; Hand tool (H); + / − / F keys; zoom buttons on the canvas.
+- **Phone layout (≤900px wide):** full-screen canvas with a bottom drawer (Brush, Color,
+  Effects) and Undo/Redo within thumb reach. The drawer pushes the canvas up rather than
+  covering it.
 - **Download:** PNG (optional transparent background) or JPG, at 3200 × 2400.
 
 ## Controls
@@ -68,9 +74,14 @@ an automated accessibility scan. Treat accessibility as designed-for, not audite
   them. Download to keep a copy.
 - Undo re-renders every stroke. Fine at hundreds of strokes; not measured beyond that.
 - Keyboard drawing makes straight-segment lines; it's an alternative, not an equal.
-- Multi-touch is ignored while drawing (no pinch zoom or pan yet).
+- A second finger turns a stroke into a pinch: strokes under 0.3 s old are dropped, older ones
+  are kept. Two-finger tap-to-undo isn't implemented.
+- While zooming, the view is briefly stretched from the last render, then re-rendered sharply.
+- The canvas is always landscape (4:3); on a portrait phone it uses about half the screen
+  until you zoom.
 - Fonts load from Google Fonts; offline, the system fallback fonts are used.
 
 ## Next improvements (not started)
 
-Real-device pass (phone + stylus), short demo recording, zoom/pan, stroke replay, layers.
+Real-device pass (phone + stylus), short demo recording, portrait canvas option, stroke
+replay, layers.

@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BRUSHES } from "./engine/brushes";
-import { normalizeHex } from "./engine/color";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
-import { SYMMETRY_LABELS } from "./engine/symmetry";
 import {
   BRUSH_IDS,
-  SYMMETRY_MODES,
   type Action,
   type BrushId,
   type History,
@@ -14,13 +11,22 @@ import {
 } from "./engine/types";
 import { createBrowserStore } from "./storage/browserStore";
 import { compactStroke, type DrawingStore, type DrawingSummary } from "./storage/drawing";
-import { BrushPreview } from "./ui/BrushPreview";
 import { CanvasStage, type StrokeTemplate } from "./ui/CanvasStage";
 import { DrawingsDialog } from "./ui/DrawingsDialog";
 import { ExportMenu } from "./ui/ExportMenu";
 import { downloadImage, thumbnail, type ImageFormat } from "./ui/exportImage";
 import { Icon } from "./ui/Icon";
-import { BACKGROUNDS, PALETTE, colorName } from "./ui/palette";
+import { shouldIgnoreShortcut } from "./ui/keyboard";
+import {
+  BrushPicker,
+  ColorPanel,
+  EffectsPanel,
+  SIZE_MAX,
+  SIZE_MIN,
+  ShortcutsHelp,
+} from "./ui/Panels";
+import { ToolDrawer, type DrawerTab } from "./ui/ToolDrawer";
+import { useMediaQuery } from "./ui/useMediaQuery";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error" | "unavailable";
 
@@ -33,8 +39,6 @@ interface DrawingMeta {
 }
 
 const LAST_OPEN_KEY = "tiny-canvas:last-open";
-const SIZE_MIN = 2;
-const SIZE_MAX = 160;
 
 const newMeta = (): DrawingMeta => {
   const now = Date.now();
@@ -88,6 +92,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [shelfOpen, setShelfOpen] = useState(false);
   const [shelf, setShelf] = useState<DrawingSummary[] | "loading" | "error">("loading");
   const [message, setMessage] = useState<{ text: string; undo?: boolean } | null>(null);
+  const [drawerTab, setDrawerTab] = useState<DrawerTab | null>(null);
+  const isPhone = useMediaQuery("(max-width: 900px)");
 
   const scene = useMemo(() => sceneFrom(history.past), [history.past]);
   const size = sizes[brush];
@@ -285,12 +291,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      const typing =
-        target.isContentEditable ||
-        (target instanceof HTMLInputElement &&
-          !["radio", "checkbox", "range"].includes(target.type)) ||
-        target instanceof HTMLTextAreaElement;
-      if (typing || shelfOpen) return;
+      if (shouldIgnoreShortcut(event) || shelfOpen) return;
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       if (mod && key === "z") {
@@ -329,12 +330,47 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     unavailable: "Saving is off in this browser. Download to keep a copy.",
   };
 
+  const panels = {
+    brush: <BrushPicker brush={brush} color={color} onChange={setBrush} />,
+    color: (
+      <ColorPanel
+        color={color}
+        hexDraft={hexDraft}
+        onHexDraft={setHexDraft}
+        recent={recent}
+        onPick={pickColor}
+      />
+    ),
+    effects: (
+      <EffectsPanel
+        size={size}
+        onSize={setSize}
+        opacity={opacity}
+        onOpacity={setOpacity}
+        symmetry={symmetry}
+        onSymmetry={setSymmetry}
+        background={scene.background}
+        onBackground={(hex) => apply({ type: "background", color: hex })}
+        color={color}
+      />
+    ),
+  };
+
+  const stage = (
+    <CanvasStage
+      scene={scene}
+      template={template}
+      onCommit={onCommit}
+      onAnnounce={(text) => setMessage({ text })}
+    />
+  );
+
   return (
-    <div className="app">
+    <div className={`app ${isPhone ? "app--phone" : ""}`}>
       <header className="topbar">
-        <a className="topbar__home" href="../">
+        <a className="topbar__home" href="../" aria-label="Back to Creative Lab">
           <Icon name="arrowLeft" />
-          <span>Creative Lab</span>
+          <span className="topbar__home-text">Creative Lab</span>
         </a>
         <div className="topbar__title">
           <h1>Tiny Canvas</h1>
@@ -356,26 +392,30 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           </p>
         </div>
         <div className="topbar__actions" role="toolbar" aria-label="Drawing actions">
-          <button
-            type="button"
-            className="icon-button"
-            onClick={doUndo}
-            disabled={!canUndo(history)}
-            aria-label="Undo"
-            title="Undo (Ctrl+Z)"
-          >
-            <Icon name="undo" />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={doRedo}
-            disabled={!canRedo(history)}
-            aria-label="Redo"
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <Icon name="redo" />
-          </button>
+          {!isPhone && (
+            <>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={doUndo}
+                disabled={!canUndo(history)}
+                aria-label="Undo"
+                title="Undo (Ctrl+Z)"
+              >
+                <Icon name="undo" />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={doRedo}
+                disabled={!canRedo(history)}
+                aria-label="Redo"
+                title="Redo (Ctrl+Shift+Z)"
+              >
+                <Icon name="redo" />
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="button"
@@ -383,11 +423,11 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             disabled={scene.strokes.length === 0}
           >
             <Icon name="trash" />
-            <span>Clear</span>
+            <span className="button__text">Clear</span>
           </button>
           <button type="button" className="button" onClick={() => void startNew()}>
             <Icon name="plus" />
-            <span>New</span>
+            <span className="button__text">New</span>
           </button>
           <button
             type="button"
@@ -396,229 +436,39 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             disabled={!store}
           >
             <Icon name="shelf" />
-            <span>My drawings</span>
+            <span className="button__text">My drawings</span>
           </button>
           <ExportMenu disabled={false} onExport={exportImage} />
         </div>
       </header>
 
-      <main className="workspace">
-        <section className="panel panel--brushes" aria-labelledby="brushes-heading">
-          <h2 id="brushes-heading" className="panel__heading">
-            Brushes
-          </h2>
-          <div className="brush-grid" role="radiogroup" aria-labelledby="brushes-heading">
-            {BRUSH_IDS.map((id, i) => (
-              <label key={id} className="brush-tile" title={BRUSHES[id].hint}>
-                <input
-                  type="radio"
-                  name="brush"
-                  value={id}
-                  checked={brush === id}
-                  onChange={() => setBrush(id)}
-                  aria-label={BRUSHES[id].label}
-                  aria-describedby={`brush-hint-${id}`}
-                />
-                <span className="brush-tile__body">
-                  <BrushPreview brush={id} color={id === "eraser" ? "#000052" : color} />
-                  <span className="brush-tile__label">
-                    {BRUSHES[id].label}
-                    <kbd aria-hidden="true">{i === 9 ? 0 : i + 1}</kbd>
-                  </span>
-                </span>
-                <span id={`brush-hint-${id}`} className="visually-hidden">
-                  {BRUSHES[id].hint}
-                </span>
-              </label>
-            ))}
+      {isPhone ? (
+        <main className="workspace workspace--phone">
+          {stage}
+          <ToolDrawer
+            tab={drawerTab}
+            onTab={setDrawerTab}
+            brush={brush}
+            color={color}
+            symmetry={symmetry}
+            canUndo={canUndo(history)}
+            canRedo={canRedo(history)}
+            onUndo={doUndo}
+            onRedo={doRedo}
+            panels={panels}
+          />
+        </main>
+      ) : (
+        <main className="workspace">
+          <div className="panel panel--brushes">{panels.brush}</div>
+          {stage}
+          <div className="panel panel--settings" role="region" aria-label="Color and effects">
+            {panels.color}
+            {panels.effects}
+            <ShortcutsHelp />
           </div>
-        </section>
-
-        <CanvasStage
-          scene={scene}
-          template={template}
-          onCommit={onCommit}
-          onAnnounce={(text) => setMessage({ text })}
-        />
-
-        <section className="panel panel--settings" aria-label="Brush settings">
-          <div className="control">
-            <h2 className="panel__heading" id="color-heading">
-              Color
-            </h2>
-            <div className="current-color">
-              <span
-                className="current-color__chip"
-                style={{ background: color }}
-                aria-hidden="true"
-              />
-              <span>
-                <strong>{colorName(color).replace(/^custom color/, "Custom")}</strong>
-                <small>{color.toUpperCase()}</small>
-              </span>
-            </div>
-            <div className="swatches" role="radiogroup" aria-labelledby="color-heading">
-              {PALETTE.map((c) => (
-                <label key={c.hex} className="swatch" title={c.name}>
-                  <input
-                    type="radio"
-                    name="color"
-                    value={c.hex}
-                    checked={color === c.hex}
-                    onChange={() => pickColor(c.hex)}
-                    aria-label={c.name}
-                  />
-                  <span style={{ background: c.hex }} aria-hidden="true" />
-                </label>
-              ))}
-            </div>
-            <div className="custom-color">
-              <label className="picker">
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => pickColor(e.target.value)}
-                  aria-label="Choose any color"
-                />
-                <span>Any color</span>
-              </label>
-              <form
-                className="hex-field"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const hex = normalizeHex(hexDraft);
-                  if (hex) pickColor(hex);
-                }}
-              >
-                <label htmlFor="hex-input" className="visually-hidden">
-                  Hex color code
-                </label>
-                <input
-                  id="hex-input"
-                  value={hexDraft}
-                  onChange={(e) => setHexDraft(e.target.value)}
-                  onBlur={() => {
-                    const hex = normalizeHex(hexDraft);
-                    if (hex) pickColor(hex);
-                    else setHexDraft(color);
-                  }}
-                  aria-invalid={normalizeHex(hexDraft) === null}
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-              </form>
-            </div>
-            {recent.length > 1 && (
-              <div className="recent">
-                <h3 id="recent-heading">Recent</h3>
-                <div className="recent__row" role="group" aria-labelledby="recent-heading">
-                  {recent.map((hex) => (
-                    <button
-                      type="button"
-                      key={hex}
-                      className="recent__chip"
-                      style={{ background: hex }}
-                      onClick={() => pickColor(hex)}
-                      aria-label={`Use ${colorName(hex)}`}
-                      aria-pressed={hex === color}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="control">
-            <label className="slider">
-              <span className="slider__label">
-                Size <output>{size}px</output>
-              </span>
-              <input
-                type="range"
-                min={SIZE_MIN}
-                max={SIZE_MAX}
-                value={size}
-                onChange={(e) => setSize(Number(e.target.value))}
-              />
-            </label>
-            <label className="slider">
-              <span className="slider__label">
-                Opacity <output>{Math.round(opacity * 100)}%</output>
-              </span>
-              <input
-                type="range"
-                min={5}
-                max={100}
-                step={5}
-                value={Math.round(opacity * 100)}
-                onChange={(e) => setOpacity(Number(e.target.value) / 100)}
-              />
-            </label>
-          </div>
-
-          <fieldset className="control symmetry">
-            <legend className="panel__heading">Symmetry</legend>
-            <div className="chips">
-              {SYMMETRY_MODES.map((mode) => (
-                <label key={mode} className="chip">
-                  <input
-                    type="radio"
-                    name="symmetry"
-                    value={mode}
-                    checked={symmetry === mode}
-                    onChange={() => setSymmetry(mode)}
-                  />
-                  <span>{SYMMETRY_LABELS[mode]}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="control">
-            <h2 className="panel__heading" id="bg-heading">
-              Background
-            </h2>
-            <div className="bg-row" role="group" aria-labelledby="bg-heading">
-              {BACKGROUNDS.map((bg) => (
-                <button
-                  key={bg.hex}
-                  type="button"
-                  className="bg-chip"
-                  style={{ background: bg.hex }}
-                  aria-label={`${bg.name} background`}
-                  aria-pressed={scene.background === bg.hex}
-                  onClick={() => apply({ type: "background", color: bg.hex })}
-                />
-              ))}
-              <button
-                type="button"
-                className="button button--small"
-                onClick={() => apply({ type: "background", color })}
-              >
-                Use brush color
-              </button>
-            </div>
-          </div>
-
-          <details className="control shortcuts">
-            <summary>Keyboard shortcuts</summary>
-            <dl>
-              <dt>1–9, 0</dt>
-              <dd>Choose a brush</dd>
-              <dt>E</dt>
-              <dd>Eraser on and off</dd>
-              <dt>[ and ]</dt>
-              <dd>Smaller and bigger brush</dd>
-              <dt>Ctrl+Z</dt>
-              <dd>Undo</dd>
-              <dt>Ctrl+Shift+Z</dt>
-              <dd>Redo</dd>
-              <dt>Arrows + Space</dt>
-              <dd>Draw with the keyboard when the canvas has focus</dd>
-            </dl>
-          </details>
-        </section>
-      </main>
+        </main>
+      )}
 
       <div className="toast-region" aria-live="polite">
         {message && (

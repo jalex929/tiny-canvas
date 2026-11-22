@@ -568,7 +568,7 @@ fieldset.control:first-child {
   font-size: 13px;
 }
 
-.slider output {
+.slider__value {
   font-family: var(--font-mono);
   font-weight: 600;
   color: var(--navy-60);
@@ -675,27 +675,27 @@ input[type="range"] {
 
 .stage {
   position: relative;
-  display: grid;
-  place-items: center;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   border-radius: var(--radius);
   background-color: var(--navy-08);
   background-image: radial-gradient(var(--navy-15) 1.2px, transparent 1.2px);
   background-size: 18px 18px;
-  padding: 0;
 }
 
-.stage__sheet {
-  position: relative;
-  border-radius: 6px;
+.stage__paper {
+  position: absolute;
+  border-radius: 4px;
   box-shadow:
     0 1px 0 rgb(0 0 82 / 0.1),
     0 12px 32px -12px rgb(0 0 82 / 0.35);
-  overflow: hidden;
+  pointer-events: none;
 }
 
 .stage__canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -706,8 +706,36 @@ input[type="range"] {
   -webkit-touch-callout: none;
 }
 
+.stage__canvas.is-hand {
+  cursor: grab;
+}
+
+.stage__canvas.is-panning {
+  cursor: grabbing;
+}
+
 .stage__canvas:focus-visible {
   box-shadow: inset 0 0 0 3px var(--navy);
+}
+
+.stage__guides {
+  position: absolute;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Two strokes so the guides read on light and dark backgrounds. */
+.stage__guides .guide-under {
+  stroke: rgb(255 255 255 / 0.5);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.stage__guides .guide-over {
+  stroke: rgb(0 0 82 / 0.45);
+  stroke-width: 1;
+  stroke-dasharray: 6 6;
+  vector-effect: non-scaling-stroke;
 }
 
 .stage__ring,
@@ -740,7 +768,6 @@ input[type="range"] {
   /* Its own backing so it stays legible on any background color. */
   background: rgb(255 255 255 / 0.92);
   box-shadow: 0 0 0 1px var(--navy-15);
-  pointer-events: none;
   font-size: 15px;
   color: var(--navy-60);
 }
@@ -749,10 +776,136 @@ input[type="range"] {
   display: block;
   font-family: var(--font-mono);
   font-weight: 600;
-  font-size: clamp(20px, 3vw, 32px);
+  font-size: clamp(18px, 2.6vw, 30px);
   color: var(--navy);
   line-height: 1.1;
   margin-bottom: 6px;
+}
+
+/* Zoom control */
+
+.zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1.5px solid var(--navy);
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 8px 20px -10px rgb(0 0 82 / 0.5);
+}
+
+.zoom__button,
+.zoom__level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.zoom__level {
+  min-width: 58px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.zoom__button:hover:not(:disabled),
+.zoom__level:hover {
+  background: var(--yellow-soft);
+}
+
+.zoom__button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.zoom__hand {
+  margin-left: 2px;
+  box-shadow: inset 1.5px 0 0 var(--navy-15);
+  border-radius: 0 999px 999px 0;
+}
+
+.zoom__hand[aria-pressed="true"] {
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+/* Symmetry tiles */
+
+.symmetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.symmetry-tile {
+  position: relative;
+  display: grid;
+  cursor: pointer;
+}
+
+.symmetry-tile input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.symmetry-tile__body {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 6px 4px;
+  border: 1.5px solid var(--navy-15);
+  border-radius: var(--radius-small);
+  background: var(--white);
+}
+
+.symmetry-preview {
+  width: 100%;
+  max-width: 64px;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 4px;
+  background: var(--navy-08);
+}
+
+.symmetry-tile__label {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.symmetry-tile:hover .symmetry-tile__body {
+  border-color: var(--navy-60);
+}
+
+.symmetry-tile input:checked + .symmetry-tile__body {
+  border: 2px solid var(--navy);
+  background: var(--yellow-soft);
+  padding: 5.5px 3.5px;
+}
+
+.symmetry-tile input:checked + .symmetry-tile__body .symmetry-tile__label::before {
+  content: "✓ ";
+}
+
+.symmetry-tile input:focus-visible + .symmetry-tile__body {
+  box-shadow: var(--focus);
 }
 
 /* ---------- Export menu ---------- */
@@ -1008,6 +1161,7 @@ input[type="range"] {
 @media (max-width: 1180px) {
   .workspace {
     grid-template-columns: 200px minmax(0, 1fr) 260px;
+    height: calc(100vh - 124px);
   }
   .topbar {
     grid-template-columns: auto 1fr;
@@ -1016,82 +1170,263 @@ input[type="range"] {
     grid-column: 1 / -1;
     justify-content: flex-start;
   }
-  .workspace {
-    height: calc(100vh - 124px);
+}
+
+/* ---------- Phone and small tablet: full-screen canvas + bottom drawer ---------- */
+
+.app--phone {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app--phone .topbar {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.app--phone .topbar__home {
+  margin-left: -4px;
+  padding: 8px 4px;
+}
+
+.app--phone .topbar__home-text,
+.app--phone .topbar__title h1,
+.app--phone .button__text,
+.app--phone .export .button span {
+  display: none;
+}
+
+.app--phone .topbar__title {
+  grid-template-columns: 1fr;
+  justify-items: start;
+}
+
+.app--phone .title-input {
+  width: 100%;
+  padding: 2px 4px;
+  margin-left: -4px;
+  font-size: 15px;
+}
+
+.app--phone .save-status {
+  grid-column: 1;
+  padding-left: 0;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.app--phone .topbar__actions {
+  grid-column: auto;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.app--phone .topbar__actions .button {
+  width: 40px;
+  padding: 0;
+}
+
+.workspace--phone {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+}
+
+.workspace--phone .stage {
+  border-radius: 0;
+}
+
+/* Top right on phones: clear of the thumb zone and the tool drawer. */
+.workspace--phone .zoom {
+  top: 8px;
+  right: 8px;
+  bottom: auto;
+  padding: 2px;
+}
+
+.workspace--phone .zoom__button,
+.workspace--phone .zoom__level {
+  min-width: 32px;
+  height: 32px;
+}
+
+.workspace--phone .zoom__level {
+  min-width: 48px;
+  font-size: 12px;
+}
+
+.drawer {
+  display: grid;
+  background: var(--white);
+  border-top: 2px solid var(--navy);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.drawer__sheet {
+  max-height: 46dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 16px 16px;
+  border-bottom: 1px solid var(--navy-15);
+  animation: sheet-in 180ms var(--ease);
+}
+
+.drawer__sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  background: var(--white);
+}
+
+.drawer__sheet-title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The sheet already has a title, so panel headings would repeat it. */
+.drawer__sheet #brushes-heading,
+.drawer__sheet #color-heading {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.drawer__sheet .control:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.drawer__sheet .brush-grid {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+
+.drawer__sheet .swatches {
+  grid-template-columns: repeat(10, 1fr);
+}
+
+.drawer__sheet .symmetry-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.drawer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.drawer__history {
+  display: flex;
+  gap: 4px;
+  padding-right: 8px;
+  border-right: 1px solid var(--navy-15);
+}
+
+.drawer__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.drawer__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 8px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.drawer__tab[aria-expanded="true"] {
+  border-color: var(--navy);
+  background: var(--yellow-soft);
+}
+
+.drawer__tab-text {
+  display: grid;
+  min-width: 0;
+}
+
+.drawer__tab-label {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.drawer__tab-detail {
+  font-size: 11px;
+  color: var(--navy-60);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawer__chip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  vertical-align: middle;
+  box-shadow: inset 0 0 0 1px rgb(0 0 82 / 0.3);
+}
+
+.icon-button--small {
+  width: 32px;
+  min-height: 32px;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 
-@media (max-width: 900px) {
-  .topbar {
-    padding: 10px 16px;
-    gap: 8px 12px;
+@media (max-width: 420px) {
+  .drawer__tab {
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px;
+    text-align: center;
   }
-  .topbar__title {
-    grid-template-columns: 1fr;
+  .drawer__tab-text {
+    justify-items: center;
   }
-  .save-status {
-    grid-column: 1;
+  .drawer__tab-detail {
+    max-width: 100%;
   }
-  .workspace {
-    grid-template-columns: 1fr;
-    height: auto;
-    padding: 12px 16px 96px;
-  }
-  .stage {
-    order: -1;
-    height: min(75vw, 64vh);
-  }
-  .panel {
-    overflow: visible;
-  }
-  .brush-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
-  .brush-tile__label kbd {
-    display: none;
-  }
-  .swatches {
-    grid-template-columns: repeat(10, 1fr);
-  }
-}
-
-@media (max-width: 560px) {
-  /* One left edge for the whole header on phones. */
-  .topbar {
-    grid-template-columns: 1fr;
-    justify-items: start;
-  }
-  .topbar__title {
-    justify-items: start;
-    text-align: left;
-  }
-  .title-input,
-  .save-status {
-    padding-left: 0;
-    margin-left: 0;
-  }
-  .brush-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .swatches {
+  .drawer__sheet .swatches {
     grid-template-columns: repeat(8, 1fr);
   }
-  .topbar__actions .button span {
-    display: none;
-  }
-  .topbar__actions .button {
-    width: 40px;
-    padding: 0;
-  }
-  .topbar__actions .export .button span {
-    display: inline;
-  }
-  .topbar__actions .export .button {
-    width: auto;
-    padding: 0 14px;
-  }
-  .stage {
-    height: 75vw;
+  .drawer__sheet .symmetry-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

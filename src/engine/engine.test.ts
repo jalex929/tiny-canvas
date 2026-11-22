@@ -156,6 +156,15 @@ describe("rendering", () => {
     expect(target.calls.some((c) => c.startsWith("stroke("))).toBe(false);
   });
 
+  it("offsets the drawing when the view is panned", () => {
+    const target = recordingContext();
+    drawStroke({ ctx: target.ctx, scale: 2, originX: -300, originY: 40 }, sampleStroke("pen"), {
+      ctx: recordingContext().ctx,
+      scale: 2,
+    });
+    expect(target.calls).toContain("setTransform(2.000,0.000,0.000,2.000,-300.000,40.000)");
+  });
+
   it("erases with destination-out", () => {
     const target = recordingContext();
     drawStroke({ ctx: target.ctx, scale: 1 }, sampleStroke("eraser"), {
@@ -167,10 +176,15 @@ describe("rendering", () => {
 
   it("bounds include every symmetry copy and stay inside the canvas", () => {
     const stroke = sampleStroke("pen", { symmetry: "mirror" });
-    const box = strokeBounds(stroke, symmetryMatrices("mirror", DOC_WIDTH, DOC_HEIGHT), 1, {
-      width: DOC_WIDTH,
-      height: DOC_HEIGHT,
-    })!;
+    const box = strokeBounds(
+      stroke,
+      symmetryMatrices("mirror", DOC_WIDTH, DOC_HEIGHT),
+      { scale: 1 },
+      {
+        width: DOC_WIDTH,
+        height: DOC_HEIGHT,
+      },
+    )!;
     expect(box.x).toBeLessThanOrEqual(100);
     expect(box.x + box.w).toBeGreaterThanOrEqual(DOC_WIDTH - 100);
     expect(box.x + box.w).toBeLessThanOrEqual(DOC_WIDTH);

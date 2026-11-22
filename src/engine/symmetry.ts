@@ -5,13 +5,35 @@ export type Matrix = readonly [number, number, number, number, number, number];
 
 export const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
 
-export const SYMMETRY_LABELS: Record<SymmetryMode, string> = {
-  none: "Off",
-  mirror: "Mirror",
-  quad: "Four-way",
-  radial: "Radial ×6",
-  kaleidoscope: "Kaleidoscope ×12",
+export const SYMMETRY_INFO: Record<SymmetryMode, { label: string; description: string }> = {
+  none: { label: "Off", description: "No symmetry" },
+  mirror: { label: "Mirror", description: "Mirrored left and right" },
+  quad: { label: "Mirror ×4", description: "Mirrored left-right and top-bottom, 4 copies" },
+  radial: { label: "Radial ×6", description: "Turned around the center, 6 copies" },
+  kaleidoscope: {
+    label: "Kaleidoscope",
+    description: "Turned and mirrored around the center, 12 copies",
+  },
 };
+
+/**
+ * Guide lines for each mode, as angles (radians) of lines through the center.
+ * Mirror lines for mirror modes; spokes between copies for radial modes.
+ */
+export function symmetryGuides(mode: SymmetryMode): number[] {
+  switch (mode) {
+    case "none":
+      return [];
+    case "mirror":
+      return [Math.PI / 2];
+    case "quad":
+      return [0, Math.PI / 2];
+    case "radial":
+      return [0, 1, 2].map((k) => (k * Math.PI) / 3 + Math.PI / 2);
+    case "kaleidoscope":
+      return [0, 1, 2, 3, 4, 5].map((k) => (k * Math.PI) / 6 + Math.PI / 2);
+  }
+}
 
 /** Every copy a stroke is drawn with. The first entry is always the original. */
 export function symmetryMatrices(mode: SymmetryMode, width: number, height: number): Matrix[] {

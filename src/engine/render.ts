@@ -3,10 +3,15 @@ import { createRandom } from "./random";
 import { applyMatrix, symmetryMatrices, type Matrix } from "./symmetry";
 import { DOC_HEIGHT, DOC_WIDTH, type Stroke } from "./types";
 
-/** A 2D context plus how many device pixels make one document pixel. */
+/**
+ * A 2D context, how many device pixels make one document pixel, and where the document's
+ * top-left corner sits on that context in device pixels (non-zero when zoomed or panned).
+ */
 export interface RenderTarget {
   ctx: CanvasRenderingContext2D;
   scale: number;
+  originX?: number;
+  originY?: number;
 }
 
 interface Box {
@@ -36,7 +41,7 @@ export function drawStroke(target: RenderTarget, stroke: Stroke, scratch: Render
     return;
   }
 
-  const box = strokeBounds(stroke, matrices, target.scale, target.ctx.canvas);
+  const box = strokeBounds(stroke, matrices, target, target.ctx.canvas);
   if (!box) return;
   const layer = scratch.ctx;
   layer.save();
@@ -45,7 +50,7 @@ export function drawStroke(target: RenderTarget, stroke: Stroke, scratch: Render
   layer.beginPath();
   layer.rect(box.x, box.y, box.w, box.h);
   layer.clip();
-  paintCopies({ ctx: layer, scale: target.scale }, stroke, matrices);
+  paintCopies({ ...target, ctx: layer }, stroke, matrices);
   layer.restore();
 
   const ctx = target.ctx;
@@ -69,7 +74,14 @@ function paintCopies(target: RenderTarget, stroke: Stroke, matrices: Matrix[]) {
   const brush = BRUSHES[stroke.brush];
   for (const m of matrices) {
     target.ctx.save();
-    target.ctx.setTransform(target.scale, 0, 0, target.scale, 0, 0);
+    target.ctx.setTransform(
+      target.scale,
+      0,
+      0,
+      target.scale,
+      target.originX ?? 0,
+      target.originY ?? 0,
+    );
     target.ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
     // Same seed for every copy, so mirrored halves match exactly.
     brush.paint({
@@ -86,7 +98,7 @@ function paintCopies(target: RenderTarget, stroke: Stroke, matrices: Matrix[]) {
 export function strokeBounds(
   stroke: Stroke,
   matrices: Matrix[],
-  scale: number,
+  target: { scale: number; originX?: number; originY?: number },
   canvas: { width: number; height: number },
 ): Box | null {
   let minX = Infinity;
@@ -104,10 +116,11 @@ export function strokeBounds(
   }
   if (minX === Infinity) return null;
   const pad = stroke.size * 2.5 + 4;
-  const x = Math.max(0, Math.floor((minX - pad) * scale));
-  const y = Math.max(0, Math.floor((minY - pad) * scale));
-  const right = Math.min(canvas.width, Math.ceil((maxX + pad) * scale));
-  const bottom = Math.min(canvas.height, Math.ceil((maxY + pad) * scale));
+  const { scale, originX = 0, originY = 0 } = target;
+  const x = Math.max(0, Math.floor((minX - pad) * scale + originX));
+  const y = Math.max(0, Math.floor((minY - pad) * scale + originY));
+  const right = Math.min(canvas.width, Math.ceil((maxX + pad) * scale + originX));
+  const bottom = Math.min(canvas.height, Math.ceil((maxY + pad) * scale + originY));
   if (right <= x || bottom <= y) return null;
   return { x, y, w: right - x, h: bottom - y };
 }

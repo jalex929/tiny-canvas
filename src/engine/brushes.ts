@@ -203,6 +203,43 @@ export const BRUSHES: Record<BrushId, BrushDefinition> = {
       }
     },
   },
+  hearts: {
+    id: "hearts",
+    label: "Hearts",
+    hint: "A trail of hearts in shades of your color",
+    composite: "source-over",
+    defaultSize: 34,
+    paint: ({ ctx, stroke, random }) => {
+      const base = hexToHsl(stroke.color);
+      for (const point of resample(stroke.points, Math.max(4, stroke.size * 1.05))) {
+        const radius = stroke.size * (0.32 + random() * 0.22) * pressureScale(point.p);
+        const x = point.x + (random() - 0.5) * stroke.size * 0.35;
+        const y = point.y + (random() - 0.5) * stroke.size * 0.35;
+        const hex = hslToHex({
+          h: base.h + (random() - 0.5) * 30,
+          s: Math.max(base.s, 55),
+          l: Math.min(82, Math.max(28, base.l + (random() - 0.5) * 26)),
+        });
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((random() - 0.5) * 0.8);
+        ctx.scale(radius, radius);
+        ctx.beginPath();
+        traceHeart(ctx);
+        if (random() < 0.22) {
+          // An occasional outlined heart keeps the trail from looking stamped.
+          ctx.strokeStyle = hex;
+          ctx.lineWidth = 0.22;
+          ctx.lineJoin = "round";
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = hex;
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    },
+  },
   threads: {
     id: "threads",
     label: "Threads",
@@ -285,6 +322,16 @@ function traceStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }
+  ctx.closePath();
+}
+
+/** A heart about 2 units wide, centered on the origin, point down. */
+function traceHeart(ctx: CanvasRenderingContext2D) {
+  ctx.moveTo(0, -0.35);
+  ctx.bezierCurveTo(-0.15, -0.85, -1, -0.85, -1, -0.2);
+  ctx.bezierCurveTo(-1, 0.3, -0.45, 0.55, 0, 0.95);
+  ctx.bezierCurveTo(0.45, 0.55, 1, 0.3, 1, -0.2);
+  ctx.bezierCurveTo(1, -0.85, 0.15, -0.85, 0, -0.35);
   ctx.closePath();
 }
 
