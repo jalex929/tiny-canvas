@@ -46,6 +46,10 @@ interface Props {
   smoothing: SmoothingLevel;
   /** Briefly shows the true brush size in the middle of the canvas (while it changes). */
   showSizePreview: boolean;
+  /** Phone layout: pinch replaces zoom buttons, and the Line button is icon-only. */
+  compact: boolean;
+  /** A tool sheet is open: hide floating controls and hints so the small canvas stays clear. */
+  quiet: boolean;
   /** When a stylus is in use, fingers only move and zoom (palm rejection). */
   penOnly: boolean;
   onPenDetected: () => void;
@@ -126,6 +130,8 @@ export function CanvasStage({
   pressureCurve,
   smoothing,
   showSizePreview,
+  compact,
+  quiet,
   penOnly,
   onPenDetected,
   eyedropper,
@@ -776,7 +782,7 @@ export function CanvasStage({
             background: scene.background,
           }}
         >
-          {isEmpty && (
+          {isEmpty && !quiet && (
             <p className="stage__empty" aria-hidden="true">
               <span>Draw anywhere.</span> Pick a brush and a color, then make a mess.
             </p>
@@ -864,7 +870,7 @@ export function CanvasStage({
         />
       )}
 
-      <div className="line-tool">
+      <div className={`line-tool ${compact ? "line-tool--compact" : ""}`} hidden={quiet}>
         <button
           type="button"
           className={`line-tool__button ${lineOn ? "is-on" : ""}`}
@@ -919,47 +925,62 @@ export function CanvasStage({
         )}
       </div>
 
-      <div className="zoom" role="group" aria-label="Zoom and pan">
-        <button
-          type="button"
-          className="zoom__button"
-          onClick={() => zoomBy(1 / ZOOM_STEP)}
-          disabled={zoomPercent <= 100}
-          aria-label="Zoom out"
-          title="Zoom out (−)"
-        >
-          <Icon name="minus" />
-        </button>
-        <button
-          type="button"
-          className="zoom__level"
-          onClick={fit}
-          aria-label={`Zoom ${zoomPercent}%. Fit to screen`}
-          title="Fit to screen (F)"
-        >
-          {zoomPercent}%
-        </button>
-        <button
-          type="button"
-          className="zoom__button"
-          onClick={() => zoomBy(ZOOM_STEP)}
-          disabled={zoomPercent >= 800}
-          aria-label="Zoom in"
-          title="Zoom in (+)"
-        >
-          <Icon name="plus" />
-        </button>
-        <button
-          type="button"
-          className="zoom__button zoom__hand"
-          onClick={() => setHandMode((v) => !v)}
-          aria-pressed={handMode}
-          aria-label="Hand tool: drag to move around"
-          title="Hand tool (H)"
-        >
-          <Icon name="hand" />
-        </button>
-      </div>
+      {compact ? (
+        // Phones zoom with a pinch; just offer a way back to the whole drawing.
+        zoomPercent > 100 &&
+        !quiet && (
+          <button
+            type="button"
+            className="zoom-fit"
+            onClick={fit}
+            aria-label="Fit drawing to screen"
+          >
+            Fit · {zoomPercent}%
+          </button>
+        )
+      ) : (
+        <div className="zoom" role="group" aria-label="Zoom and pan">
+          <button
+            type="button"
+            className="zoom__button"
+            onClick={() => zoomBy(1 / ZOOM_STEP)}
+            disabled={zoomPercent <= 100}
+            aria-label="Zoom out"
+            title="Zoom out (−)"
+          >
+            <Icon name="minus" />
+          </button>
+          <button
+            type="button"
+            className="zoom__level"
+            onClick={fit}
+            aria-label={`Zoom ${zoomPercent}%. Fit to screen`}
+            title="Fit to screen (F)"
+          >
+            {zoomPercent}%
+          </button>
+          <button
+            type="button"
+            className="zoom__button"
+            onClick={() => zoomBy(ZOOM_STEP)}
+            disabled={zoomPercent >= 800}
+            aria-label="Zoom in"
+            title="Zoom in (+)"
+          >
+            <Icon name="plus" />
+          </button>
+          <button
+            type="button"
+            className="zoom__button zoom__hand"
+            onClick={() => setHandMode((v) => !v)}
+            aria-pressed={handMode}
+            aria-label="Hand tool: drag to move around"
+            title="Hand tool (H)"
+          >
+            <Icon name="hand" />
+          </button>
+        </div>
+      )}
 
       <p id="canvas-keyboard-help" className="visually-hidden">
         Arrow keys move the drawing cursor; hold Shift to move faster. Press Space to start a line

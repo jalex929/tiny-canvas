@@ -69,7 +69,7 @@ export function ToolDrawer(props: Props) {
       id: "effects",
       icon: "sliders",
       label: "Effects",
-      detail: symmetry === "none" ? "Symmetry" : SYMMETRY_INFO[symmetry].label,
+      detail: symmetry === "none" ? "None" : SYMMETRY_INFO[symmetry].label,
     },
     { id: "canvas", icon: "frame", label: "Canvas", detail: shape },
   ];

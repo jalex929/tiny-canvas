@@ -1939,3 +1939,205 @@ input[type="range"] {
     0 0 0 1.5px var(--white),
     0 0 0 3px var(--navy);
 }
+
+/* ---------- Usability pass 2 ---------- */
+
+/* The title is editable: say so. */
+.topbar__title {
+  position: relative;
+}
+
+.topbar__title > .icon {
+  display: none;
+}
+
+.app--phone .topbar__title {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.app--phone .topbar__title > .icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  color: var(--navy-60);
+  grid-row: 1;
+  grid-column: 2;
+  pointer-events: none;
+}
+
+.title-input {
+  text-decoration: underline dotted var(--navy-15);
+  text-underline-offset: 4px;
+}
+
+.title-input:focus-visible {
+  text-decoration: none;
+}
+
+/* Phone "More" menu. */
+.more {
+  position: relative;
+}
+
+.more__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 25;
+  min-width: 210px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--white);
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px -16px rgb(0 0 82 / 0.45);
+}
+
+.more__menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.more__menu button:hover:not(:disabled) {
+  background: var(--yellow-soft);
+}
+
+.more__menu button:disabled {
+  opacity: 0.4;
+}
+
+.more__danger {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--navy-08);
+}
+
+.more__danger button {
+  color: var(--danger);
+}
+
+/* Floating controls hide while a tool sheet is open. */
+.line-tool[hidden] {
+  display: none;
+}
+
+/* Compact Line control on phones: a round thumb target, angle badge beside it. */
+.line-tool--compact .line-tool__label {
+  display: none;
+}
+
+.line-tool--compact .line-tool__button {
+  min-width: 0;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.line-tool--compact .line-tool__mode {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 14px;
+}
+
+.line-tool--compact .line-tool__button[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--yellow);
+  box-shadow: 0 0 0 2px var(--navy);
+}
+
+.line-tool--compact .line-tool__button {
+  position: relative;
+}
+
+.workspace--phone .line-tool__button,
+.workspace--phone .line-tool__mode {
+  height: auto;
+}
+
+.workspace--phone .line-tool--compact .line-tool__button {
+  height: 48px;
+}
+
+.workspace--phone .line-tool--compact .line-tool__mode {
+  height: 32px;
+}
+
+/* Phone zoom: pinch to zoom; this chip only appears when zoomed in. */
+.zoom-fit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid var(--navy);
+  border-radius: 999px;
+  background: var(--white);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 8px 20px -10px rgb(0 0 82 / 0.5);
+  cursor: pointer;
+}
+
+/* A calmer first-run hint: a small note, not a card that covers the page. */
+.stage__empty {
+  left: 4%;
+  top: 4%;
+  bottom: auto;
+  max-width: 28ch;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgb(255 255 255 / 0.85);
+}
+
+.stage__empty span {
+  display: inline;
+  font-size: 13px;
+  margin: 0 4px 0 0;
+}
+
+.app--phone .stage__empty,
+.app--phone .stage__empty span {
+  font-size: 12px;
+}
+
+/* Keep more of the canvas visible while a phone sheet is open. */
+.drawer__sheet {
+  max-height: 38dvh;
+}
+
+/* Pencil sits right after the title text (where supported, the field sizes to its text). */
+.app--phone .topbar__title {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.app--phone .title-input {
+  field-sizing: content;
+  width: auto;
+  max-width: 100%;
+  min-width: 6ch;
+}
+
+.app--phone .save-status {
+  grid-column: 1 / -1;
+}

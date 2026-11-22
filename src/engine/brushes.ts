@@ -289,11 +289,17 @@ export const BRUSHES: Record<BrushId, BrushDefinition> = {
       return eachUnit(runs, from, until, (r) => {
         const run = segments.slice(r * NEON_RUN, (r + 1) * NEON_RUN);
         const pressure = run.reduce((sum, seg) => sum + seg.ctrl.p, 0) / run.length;
+        const first = r === 0 ? run[0] : undefined;
+        const last = r === runs - 1 ? run[run.length - 1] : undefined;
         layers(stroke.size * pressureScale(pressure), (w) => {
           ctx.lineWidth = w;
           ctx.beginPath();
           run.forEach((segment, k) => traceSegment(ctx, segment, k === 0));
           ctx.stroke();
+          // Rounded ends: a half circle facing outward at the stroke's start and end only.
+          // (Round caps on every run would overlap at the joins and glow brighter there.)
+          if (first) roundEnd(ctx, first.from, first.ctrl, w);
+          if (last) roundEnd(ctx, last.to, last.ctrl, w);
         });
       });
     },
@@ -606,6 +612,15 @@ function alongPath(points: Point[]) {
     const len = Math.hypot(tx, ty) || 1;
     return { x: p.x, y: p.y, p: p.p, travelled, nx: -ty / len, ny: tx / len };
   });
+}
+
+/** Half-circle cap at `at`, bulging away from `toward` (the path's direction there). */
+function roundEnd(ctx: CanvasRenderingContext2D, at: Point, toward: Point, width: number) {
+  const angle = Math.atan2(at.y - toward.y, at.x - toward.x);
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, width / 2, angle - Math.PI / 2, angle + Math.PI / 2);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function paintDot(ctx: CanvasRenderingContext2D, at: Point, radius: number, color: string) {

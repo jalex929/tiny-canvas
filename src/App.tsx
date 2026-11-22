@@ -31,6 +31,7 @@ import {
 } from "./ui/exportImage";
 import { colorName } from "./ui/palette";
 import { Icon } from "./ui/Icon";
+import { MoreMenu } from "./ui/MoreMenu";
 import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
   BackgroundPanel,
@@ -545,6 +546,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       pressureCurve={pressureCurve}
       smoothing={smoothing}
       showSizePreview={sizePreview}
+      compact={isPhone}
+      quiet={isPhone && drawerTab !== null}
       penOnly={penOnlySetting && penDetected}
       onPenDetected={onPenDetected}
       eyedropper={eyedropper}
@@ -571,6 +574,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           <input
             id="drawing-title"
             className="title-input"
+            title="Rename this drawing"
             value={meta.title}
             maxLength={80}
             onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
@@ -578,6 +582,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
               setMeta((m) => (m.title.trim() ? m : { ...m, title: "Untitled drawing" }))
             }
           />
+          <Icon name="pencil" />
           <p className={`save-status is-${saveStatus}`} role="status">
             {statusText[saveStatus]}
           </p>
@@ -607,28 +612,51 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
               </button>
             </>
           )}
-          <button
-            type="button"
-            className="button"
-            onClick={clear}
-            disabled={scene.strokes.length === 0}
-          >
-            <Icon name="trash" />
-            <span className="button__text">Clear</span>
-          </button>
-          <button type="button" className="button" onClick={() => void startNew()}>
-            <Icon name="plus" />
-            <span className="button__text">New</span>
-          </button>
-          <button
-            type="button"
-            className="button"
-            onClick={() => void openShelf()}
-            disabled={!store}
-          >
-            <Icon name="shelf" />
-            <span className="button__text">My drawings</span>
-          </button>
+          {isPhone ? (
+            <MoreMenu
+              items={[
+                { label: "New drawing", icon: "plus", onSelect: () => void startNew() },
+                {
+                  label: "My drawings",
+                  icon: "shelf",
+                  onSelect: () => void openShelf(),
+                  disabled: !store,
+                },
+                {
+                  label: "Clear canvas",
+                  icon: "trash",
+                  onSelect: clear,
+                  disabled: scene.strokes.length === 0,
+                  danger: true,
+                },
+              ]}
+            />
+          ) : (
+            <>
+              <button
+                type="button"
+                className="button"
+                onClick={clear}
+                disabled={scene.strokes.length === 0}
+              >
+                <Icon name="trash" />
+                <span className="button__text">Clear</span>
+              </button>
+              <button type="button" className="button" onClick={() => void startNew()}>
+                <Icon name="plus" />
+                <span className="button__text">New</span>
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={() => void openShelf()}
+                disabled={!store}
+              >
+                <Icon name="shelf" />
+                <span className="button__text">My drawings</span>
+              </button>
+            </>
+          )}
           <ExportMenu
             disabled={false}
             size={exportSize(scene)}
