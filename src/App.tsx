@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BRUSHES, defaultOptions } from "./engine/brushes";
+import { normalizeHex } from "./engine/color";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
 import type { PressureCurve } from "./engine/pressure";
 import type { SmoothingLevel } from "./engine/stabilizer";
@@ -60,6 +61,8 @@ interface DrawingMeta {
 const LAST_OPEN_KEY = "tiny-canvas:last-open";
 const GUIDES_KEY = "tiny-canvas:show-guides";
 const TAP_TIP_KEY = "tiny-canvas:tip-two-finger-undo";
+const RECENT_KEY = "tiny-canvas:recent-colors";
+const RECENT_MAX = 8;
 const PHONE_QUERY = "(max-width: 900px)";
 
 /** New drawings start portrait (3:4) on phones and landscape (4:3) on bigger screens. */
@@ -117,7 +120,22 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   );
   const [color, setColor] = useState("#000052");
   const [hexDraft, setHexDraft] = useState("#000052");
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recent, setRecent] = useState<string[]>(() => {
+    // Remembered per browser; anything that isn't a valid color is ignored.
+    try {
+      const saved: unknown = JSON.parse(safeStorage.get(RECENT_KEY) ?? "[]");
+      if (!Array.isArray(saved)) return [];
+      return saved
+        .map((v) => (typeof v === "string" ? normalizeHex(v) : null))
+        .filter((v): v is string => v !== null)
+        .slice(0, RECENT_MAX);
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => safeStorage.set(RECENT_KEY, JSON.stringify(recent)), [recent]);
+  const [sizePreview, setSizePreview] = useState(false);
+  const sizePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [opacity, setOpacity] = useState(1);
   const [symmetry, setSymmetry] = useState<SymmetryMode>("none");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(store ? "idle" : "unavailable");
@@ -330,16 +348,21 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const pickColor = useCallback((hex: string) => {
     setColor(hex);
     setHexDraft(hex);
-    setRecent((list) => [hex, ...list.filter((c) => c !== hex)].slice(0, 8));
+    setRecent((list) => [hex, ...list.filter((c) => c !== hex)].slice(0, RECENT_MAX));
     setBrush((b) => (b === "eraser" ? "pen" : b));
   }, []);
 
   const setSize = useCallback(
-    (value: number) =>
+    (value: number) => {
       setSizes((s) => ({
         ...s,
         [brush]: Math.min(SIZE_MAX, Math.max(SIZE_MIN, Math.round(value))),
-      })),
+      }));
+      // Show the real brush size on the canvas while it's being changed.
+      setSizePreview(true);
+      if (sizePreviewTimer.current) clearTimeout(sizePreviewTimer.current);
+      sizePreviewTimer.current = setTimeout(() => setSizePreview(false), 900);
+    },
     [brush],
   );
 
@@ -521,6 +544,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       showGuides={showGuides}
       pressureCurve={pressureCurve}
       smoothing={smoothing}
+      showSizePreview={sizePreview}
       penOnly={penOnlySetting && penDetected}
       onPenDetected={onPenDetected}
       eyedropper={eyedropper}

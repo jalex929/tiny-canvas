@@ -10,7 +10,13 @@ import {
 import { shapePressure, smoothPressure, type PressureCurve } from "../engine/pressure";
 import { randomSeed } from "../engine/random";
 import { pullBrush, smoothingRadius, type SmoothingLevel } from "../engine/stabilizer";
-import { drawPlaced, drawStroke, drawStrokes, type RenderTarget } from "../engine/render";
+import {
+  compositeLayer,
+  drawPlaced,
+  drawStrokes,
+  paintStrokeRange,
+  type RenderTarget,
+} from "../engine/render";
 import { symmetryGuides } from "../engine/symmetry";
 import type { Point, Stroke } from "../engine/types";
 import {
@@ -38,6 +44,8 @@ interface Props {
   pressureCurve: PressureCurve;
   /** Steadies freehand lines (lazy brush). */
   smoothing: SmoothingLevel;
+  /** Briefly shows the true brush size in the middle of the canvas (while it changes). */
+  showSizePreview: boolean;
   /** When a stylus is in use, fingers only move and zoom (palm rejection). */
   penOnly: boolean;
   onPenDetected: () => void;
@@ -53,8 +61,13 @@ interface Props {
 
 interface Layers {
   display: CanvasRenderingContext2D;
+  /** Finished strokes, rendered at `cacheView`. */
   cache: CanvasRenderingContext2D;
   scratch: CanvasRenderingContext2D;
+  /** The stroke in progress: the settled part, painted once… */
+  liveStable: CanvasRenderingContext2D;
+  /** …plus its still-changing tip, repainted each frame. */
+  liveWork: CanvasRenderingContext2D;
 }
 
 type Gesture =
@@ -78,6 +91,12 @@ interface LiveStroke {
   /** Where the smoothed brush is, and where the pointer really is (for the final catch-up). */
   brush: { x: number; y: number };
   lastRaw?: { x: number; y: number; p: number };
+  /** Units already painted onto the stable live layer. */
+  painted: number;
+  /** The view the live layers were painted at; a change means repaint from scratch. */
+  liveView: View | null;
+  /** Set when points were replaced rather than added (straight-line mode). */
+  reset: boolean;
 }
 
 const KEY_STEP = 10;
@@ -89,6 +108,11 @@ const PINCH_GRACE_MS = 300;
 /** Re-render crisply this long after zooming or panning stops. */
 const SETTLE_MS = 140;
 const ZOOM_STEP = 1.25;
+/**
+ * The last couple of units of a stroke can still change as points arrive (a curve's last
+ * segment bends toward the next point), so they're repainted each frame, not settled.
+ */
+const UNSETTLED_UNITS = 2;
 /** A press on the Line button shorter than this toggles it on/off instead of holding. */
 const TAP_MS = 250;
 
@@ -101,6 +125,7 @@ export function CanvasStage({
   showGuides,
   pressureCurve,
   smoothing,
+  showSizePreview,
   penOnly,
   onPenDetected,
   eyedropper,
@@ -116,6 +141,8 @@ export function CanvasStage({
   const dprRef = useRef(1);
   const drawnRef = useRef<PlacedStroke[]>([]);
   const liveRef = useRef<LiveStroke | null>(null);
+  /** A just-finished stroke whose live layer can be copied straight into the cache. */
+  const pendingCommitRef = useRef<{ id: string; view: View } | null>(null);
   const frameRef = useRef(0);
   const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchesRef = useRef(new Map<number, { x: number; y: number }>());
@@ -192,12 +219,8 @@ export function CanvasStage({
     }
     const live = liveRef.current;
     if (live) {
-      drawStroke(targetFor(ctx, v, dpr), live.stroke, targetFor(layers.scratch, v, dpr), {
-        dx: 0,
-        dy: 0,
-        width: d.width,
-        height: d.height,
-      });
+      updateLiveLayers(layers, live, v, dpr, d);
+      compositeLayer(ctx, layers.liveWork.canvas, live.stroke);
     }
     ctx.restore();
   }, []);
@@ -256,6 +279,8 @@ export function CanvasStage({
     const display = canvas.getContext("2d");
     const cache = make();
     const scratch = make();
+    const liveStable = make();
+    const liveWork = make();
     const previous = stageSizeRef.current;
     stageSizeRef.current = stage;
     setView(
@@ -263,8 +288,9 @@ export function CanvasStage({
         ? resizeView(viewRef.current, previous, stage, docRef.current)
         : fitView(stage, docRef.current),
     );
-    if (!display || !cache || !scratch) return;
-    layersRef.current = { display, cache, scratch };
+    if (!display || !cache || !scratch || !liveStable || !liveWork) return;
+    layersRef.current = { display, cache, scratch, liveStable, liveWork };
+    if (liveRef.current) liveRef.current.reset = true;
     rebuildCache(strokesRef.current);
   }, [stage, rebuildCache, setView]);
 
@@ -298,13 +324,23 @@ export function CanvasStage({
       next.length === previous.length + 1 && previous.every((p, i) => same(p, next[i]));
     const layers = layersRef.current;
     const cv = cacheViewRef.current;
+    const pending = pendingCommitRef.current;
+    pendingCommitRef.current = null;
     if (appendedOne && layers && cv && sameView(cv, viewRef.current)) {
       const dpr = dprRef.current;
-      drawPlaced(
-        targetFor(layers.cache, cv, dpr),
-        next[next.length - 1]!,
-        targetFor(layers.scratch, cv, dpr),
-      );
+      const added = next[next.length - 1]!;
+      if (
+        pending &&
+        pending.id === added.stroke.id &&
+        sameView(pending.view, cv) &&
+        added.dx === 0 &&
+        added.dy === 0
+      ) {
+        // The live layer already holds exactly this stroke: copy it, don't redraw it.
+        compositeLayer(layers.cache, layers.liveWork.canvas, added.stroke);
+      } else {
+        drawPlaced(targetFor(layers.cache, cv, dpr), added, targetFor(layers.scratch, cv, dpr));
+      }
       drawnRef.current = next;
       requestFrame();
     } else {
@@ -396,6 +432,9 @@ export function CanvasStage({
       anchorIndex: 0,
       lastPressure: point.p,
       brush: { x: point.x, y: point.y },
+      painted: 0,
+      liveView: null,
+      reset: true,
       stroke: { ...templateRef.current, id: newStrokeId(), seed: randomSeed(), points: [point] },
     };
     requestFrame();
@@ -411,6 +450,7 @@ export function CanvasStage({
       // Keep any freehand part drawn before the line started.
       const before = live.stroke.points.slice(0, live.anchorIndex);
       live.stroke.points = [...before, ...linePoints(live.anchor, end)];
+      live.reset = true;
       requestFrame();
       return;
     }
@@ -426,7 +466,16 @@ export function CanvasStage({
   const finish = (keep: boolean) => {
     const live = liveRef.current;
     liveRef.current = null;
-    if (live && keep) onCommit(live.stroke);
+    if (live && keep) {
+      const layers = layersRef.current;
+      if (layers) {
+        // Paint the very end now, so the live layer is the complete stroke.
+        const v = viewRef.current;
+        updateLiveLayers(layers, live, v, dprRef.current, docRef.current);
+        pendingCommitRef.current = { id: live.stroke.id, view: v };
+      }
+      onCommit(live.stroke);
+    }
     requestFrame();
   };
 
@@ -789,6 +838,20 @@ export function CanvasStage({
           style={{ left: hover.x, top: hover.y, width: ringSize, height: ringSize }}
         />
       )}
+      {showSizePreview && ready && (
+        <span
+          className="stage__size-preview"
+          aria-hidden="true"
+          style={{
+            left: stage.width / 2,
+            top: stage.height / 2,
+            width: Math.max(4, ringSize),
+            height: Math.max(4, ringSize),
+            background: template.brush === "eraser" ? "transparent" : template.color,
+            opacity: template.brush === "eraser" ? 1 : Math.max(0.35, template.opacity),
+          }}
+        />
+      )}
       {keyboardActive && (
         <span
           className={`stage__cursor ${penDown ? "is-down" : ""}`}
@@ -915,6 +978,43 @@ function capture(event: React.PointerEvent<Element>) {
   } catch {
     /* not essential */
   }
+}
+
+/**
+ * Brings the live layers up to date: settles every unit that can no longer change onto the
+ * stable layer (painted once), then repaints just the moving tip on top. Drawing cost per
+ * frame stays small however long the stroke gets.
+ */
+function updateLiveLayers(
+  layers: Layers,
+  live: LiveStroke,
+  v: View,
+  dpr: number,
+  doc: { width: number; height: number },
+) {
+  const frame = { dx: 0, dy: 0, width: doc.width, height: doc.height };
+  const stable = layers.liveStable;
+  const work = layers.liveWork;
+  if (live.reset || !live.liveView || !sameView(live.liveView, v)) {
+    stable.setTransform(1, 0, 0, 1, 0, 0);
+    stable.clearRect(0, 0, stable.canvas.width, stable.canvas.height);
+    live.painted = 0;
+    live.reset = false;
+    live.liveView = v;
+  }
+  const stableTarget = targetFor(stable, v, dpr);
+  const total = paintStrokeRange(stableTarget, live.stroke, frame, live.painted, live.painted);
+  const settled = Math.max(live.painted, total - UNSETTLED_UNITS);
+  if (settled > live.painted) {
+    paintStrokeRange(stableTarget, live.stroke, frame, live.painted, settled);
+    live.painted = settled;
+  }
+  work.setTransform(1, 0, 0, 1, 0, 0);
+  work.globalAlpha = 1;
+  work.globalCompositeOperation = "source-over";
+  work.clearRect(0, 0, work.canvas.width, work.canvas.height);
+  work.drawImage(stable.canvas, 0, 0);
+  paintStrokeRange(targetFor(work, v, dpr), live.stroke, frame, live.painted, Infinity);
 }
 
 /** Device-pixel render target for a view. */

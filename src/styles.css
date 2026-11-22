@@ -1928,3 +1928,14 @@ input[type="range"] {
 .app--phone .stage__empty span {
   font-size: 18px;
 }
+
+/* True brush size, shown mid-canvas while the size changes. */
+.stage__size-preview {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1.5px var(--white),
+    0 0 0 3px var(--navy);
+}

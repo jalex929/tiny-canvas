@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { hexToHsl, hslToHex, normalizeHex, tint } from "./color";
 import { resample, smoothSegments } from "./geometry";
 import { createRandom } from "./random";
-import { drawStroke, strokeBounds } from "./render";
+import { drawStroke, paintStrokeRange, strokeBounds } from "./render";
 import { applyMatrix, symmetryMatrices } from "./symmetry";
 import { BRUSH_IDS, DOC_HEIGHT, DOC_WIDTH, SYMMETRY_MODES, type Stroke } from "./types";
 
@@ -141,6 +141,38 @@ describe("rendering", () => {
     const first = render();
     expect(first.length).toBeGreaterThan(5);
     expect(render()).toEqual(first);
+  });
+
+  it.each(BRUSH_IDS)("%s brush painted in pieces matches painting it all at once", (brush) => {
+    // Strip style settings; compare only what gets drawn, in order.
+    const shapes = (calls: string[]) =>
+      calls.filter((c) =>
+        /^(moveTo|lineTo|quadraticCurveTo|bezierCurveTo|arc|fillRect|translate|rotate|scale)\(/.test(
+          c,
+        ),
+      );
+    const frame = { dx: 0, dy: 0, width: DOC_WIDTH, height: DOC_HEIGHT };
+    const stroke = sampleStroke(brush, {
+      points: Array.from({ length: 40 }, (_, i) => ({
+        x: 100 + i * 9,
+        y: 200 + Math.sin(i / 4) * 50,
+        p: 0.5 + (i % 5) / 10,
+      })),
+    });
+    const whole = recordingContext();
+    const units = paintStrokeRange({ ctx: whole.ctx, scale: 1 }, stroke, frame, 0, Infinity);
+    const pieces = recordingContext();
+    const cut1 = Math.floor(units / 3);
+    const cut2 = Math.floor((units * 2) / 3);
+    for (const [from, until] of [
+      [0, cut1],
+      [cut1, cut2],
+      [cut2, Infinity],
+    ] as const) {
+      paintStrokeRange({ ctx: pieces.ctx, scale: 1 }, stroke, frame, from, until);
+    }
+    expect(units).toBeGreaterThan(3);
+    expect(shapes(pieces.calls)).toEqual(shapes(whole.calls));
   });
 
   it("composites see-through strokes once, so overlaps don't darken", () => {

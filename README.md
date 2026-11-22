@@ -44,6 +44,8 @@ themselves in your browser, with no account needed.
   or Alt+click. Less-used settings are collapsible on desktop. See
   [docs/ux-review-tiny-canvas.md](../../docs/ux-review-tiny-canvas.md).
 - **Share:** on phones and tablets, "Share or save to Photos" opens the system share sheet.
+- **Size ring:** while the size changes, a ring of the true brush size (at the current zoom)
+  shows in the middle of the canvas. Recent colors are remembered per browser.
 - **Download:** PNG (optional transparent background) or JPG, at twice the canvas size
   (e.g. 3200 × 2400 for landscape, 2800 × 2800 for square).
 
@@ -65,6 +67,14 @@ themselves in your browser, with no account needed.
   (`history.ts`), resizing lossless, saves small, and export resolution-independent.
 - **Deterministic texture.** Spray, pencil, sparkle and threads use a seeded PRNG stored on the
   stroke, so a stroke looks identical after undo, reload or export.
+- **Incremental drawing.** Every brush paints a stroke as small units (curve segments or
+  evenly spaced samples), with randomness seeded per unit, so painting it in pieces gives the
+  same pixels as painting it at once (a unit test checks this for every brush). A stroke in
+  progress settles finished units onto a live layer once and repaints only its tip each
+  frame, so drawing stays fast however long the stroke gets; on release the live layer is
+  copied into the drawing instead of being redrawn. Measured (headless Chromium, software
+  rendering, 1000-point stroke): 2–5 ms average per frame for every brush, previously up to
+  ~200 ms.
 - **Rendering** (`render.ts`): a visible canvas, a cache of finished strokes (a new stroke is
   added incrementally; undo rebuilds), and a scratch layer. See-through or blending strokes are
   painted on the scratch layer and composited once, clipped to the stroke's bounds, so

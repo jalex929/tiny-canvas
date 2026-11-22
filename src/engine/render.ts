@@ -1,5 +1,4 @@
 import { BRUSHES } from "./brushes";
-import { createRandom } from "./random";
 import { applyMatrix, symmetryMatrices, type Matrix } from "./symmetry";
 import type { PlacedStroke } from "./history";
 import { DOC_HEIGHT, DOC_WIDTH, type Stroke } from "./types";
@@ -105,8 +104,15 @@ function shifted(target: RenderTarget, frame: StrokeFrame): RenderTarget {
   };
 }
 
-function paintCopies(target: RenderTarget, stroke: Stroke, matrices: Matrix[]) {
+function paintCopies(
+  target: RenderTarget,
+  stroke: Stroke,
+  matrices: Matrix[],
+  from = 0,
+  until = Infinity,
+): number {
   const brush = BRUSHES[stroke.brush];
+  let units = 0;
   for (const m of matrices) {
     target.ctx.save();
     target.ctx.setTransform(
@@ -119,14 +125,45 @@ function paintCopies(target: RenderTarget, stroke: Stroke, matrices: Matrix[]) {
     );
     target.ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
     // Same seed for every copy, so mirrored halves match exactly.
-    brush.paint({
-      ctx: target.ctx,
-      stroke,
-      random: createRandom(stroke.seed),
-      pixelScale: target.scale,
-    });
+    units = brush.paint({ ctx: target.ctx, stroke, pixelScale: target.scale, from, until });
     target.ctx.restore();
   }
+  return units;
+}
+
+/**
+ * Paints units [from, until) of a stroke onto a layer as plain ink: no opacity, no blend
+ * mode. Used for strokes in progress, which build up on their own layer and are then
+ * composited with `compositeLayer`. Returns how many units the stroke has.
+ */
+export function paintStrokeRange(
+  target: RenderTarget,
+  stroke: Stroke,
+  frame: StrokeFrame,
+  from: number,
+  until: number,
+): number {
+  const matrices = symmetryMatrices(stroke.symmetry, frame.width, frame.height);
+  target.ctx.save();
+  target.ctx.globalCompositeOperation = "source-over";
+  const units = paintCopies(shifted(target, frame), stroke, matrices, from, until);
+  target.ctx.restore();
+  return units;
+}
+
+/** Puts a layer of plain ink onto the canvas with the stroke's opacity and blend mode. */
+export function compositeLayer(
+  ctx: CanvasRenderingContext2D,
+  layer: CanvasImageSource,
+  stroke: Stroke,
+): void {
+  const brush = BRUSHES[stroke.brush];
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = stroke.opacity * (brush.strokeAlpha ?? 1);
+  ctx.globalCompositeOperation = brush.composite;
+  ctx.drawImage(layer, 0, 0);
+  ctx.restore();
 }
 
 /** Device-pixel rectangle that safely contains the stroke, its copies and its glow. */
