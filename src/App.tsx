@@ -59,6 +59,10 @@ interface DrawingMeta {
   persisted: boolean;
 }
 
+/** Where the back link goes. Set VITE_HOME_URL / VITE_HOME_LABEL at build time to change it. */
+const HOME_URL: string = import.meta.env.VITE_HOME_URL ?? "https://jayfox.design";
+const HOME_LABEL: string = import.meta.env.VITE_HOME_LABEL ?? "jayfox.design";
+
 const LAST_OPEN_KEY = "tiny-canvas:last-open";
 const GUIDES_KEY = "tiny-canvas:show-guides";
 const TAP_TIP_KEY = "tiny-canvas:tip-two-finger-undo";
@@ -562,9 +566,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   return (
     <div className={`app ${isPhone ? "app--phone" : ""}`}>
       <header className="topbar">
-        <a className="topbar__home" href="../" aria-label="Back to Creative Lab">
+        <a className="topbar__home" href={HOME_URL} aria-label={`Back to ${HOME_LABEL}`}>
           <Icon name="arrowLeft" />
-          <span className="topbar__home-text">Creative Lab</span>
+          <span className="topbar__home-text">{HOME_LABEL}</span>
         </a>
         <div className="topbar__title">
           <h1>Tiny Canvas</h1>

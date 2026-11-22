@@ -4,7 +4,7 @@ A pocket sketchbook in the browser. Pick from twelve brushes in four groups, tur
 from 40 colors or any color at all, and download your drawing as a PNG or JPG. Drawings save
 themselves in your browser, with no account needed.
 
-![Tiny Canvas](../gallery/public/previews/tiny-canvas.png)
+![Tiny Canvas: a kaleidoscope neon drawing on navy, brush tiles on the left, color palette on the right](docs/preview.png)
 
 ## Features
 
@@ -42,7 +42,7 @@ themselves in your browser, with no account needed.
 - **Quick controls:** size/opacity always visible (top of the desktop panel; a bar above the
   phone tabs). Two-finger tap undoes, three-finger tap redoes. Eyedropper: "Pick from drawing"
   or Alt+click. Less-used settings are collapsible on desktop. See
-  [docs/ux-review-tiny-canvas.md](../../docs/ux-review-tiny-canvas.md).
+  [docs/ux-review.md](docs/ux-review.md).
 - **Share:** on phones and tablets, "Share or save to Photos" opens the system share sheet.
 - **Size ring:** while the size changes, a ring of the true brush size (at the current zoom)
   shows in the middle of the canvas. Recent colors are remembered per browser.
@@ -83,6 +83,21 @@ themselves in your browser, with no account needed.
   interface and an IndexedDB implementation. `src/ui` + `App.tsx` handle input and layout.
 - **High-DPI:** backing store is CSS size × devicePixelRatio (capped at 2.5).
 
+## Run it
+
+Needs Node 22+.
+
+```bash
+npm install
+npm run dev          # http://localhost:5173 (add --host to open it from a phone on the same Wi-Fi)
+npm run check        # typecheck, lint, format check, unit tests, production build
+npm run test:e2e     # Playwright on desktop Chrome and an emulated Pixel 7 (after npm run build)
+```
+
+The production build in `dist/` is static and uses relative paths, so it can be hosted at a
+domain root or under any sub-path. `netlify.toml` covers Netlify / Bolt publishing. The back
+link points to jayfox.design; set `VITE_HOME_URL` and `VITE_HOME_LABEL` to change it.
+
 ## Tests
 
 - **Unit (Vitest, 38):** history (25-step undo/redo, redo branch dropped, clear undoable,
@@ -117,3 +132,8 @@ an automated accessibility scan. Treat accessibility as designed-for, not audite
 
 Real-device pass (phone + stylus), short demo recording, stroke replay, layers, custom canvas
 size.
+
+## Background
+
+Built by Jay Fox as the first project of a small, private "creative lab" of games and tools,
+then moved to its own repository. Design and engineering notes live in [docs/](docs/).
