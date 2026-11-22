@@ -757,6 +757,16 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   return (
     <div className={`app ${isPhone ? "app--phone" : ""}`}>
+      <a
+        className="skip-link"
+        href="#drawing-canvas"
+        onClick={(e) => {
+          e.preventDefault();
+          document.querySelector<HTMLCanvasElement>("[data-testid=drawing-canvas]")?.focus();
+        }}
+      >
+        Skip to canvas
+      </a>
       <header className="topbar">
         <a className="topbar__home" href={HOME_URL} aria-label={`Back to ${HOME_LABEL}`}>
           <Icon name="arrowLeft" />
@@ -835,11 +845,19 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
                 className="button"
                 onClick={clear}
                 disabled={scene.strokes.length === 0}
+                title="Clear the canvas"
+                aria-label="Clear"
               >
                 <Icon name="trash" />
                 <span className="button__text">Clear</span>
               </button>
-              <button type="button" className="button" onClick={() => void startNew()}>
+              <button
+                type="button"
+                className="button"
+                onClick={() => void startNew()}
+                title="New drawing"
+                aria-label="New"
+              >
                 <Icon name="plus" />
                 <span className="button__text">New</span>
               </button>
@@ -848,6 +866,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
                 className="button"
                 onClick={() => void openShelf()}
                 disabled={!store}
+                title="My drawings"
+                aria-label="My drawings"
               >
                 <Icon name="shelf" />
                 <span className="button__text">My drawings</span>

@@ -566,3 +566,29 @@ test("phone header buttons all have names (icon-only on small screens)", async (
   await page.getByRole("button", { name: "Download" }).click();
   await expect(page.getByRole("button", { name: /Download PNG/ })).toBeVisible();
 });
+
+test("keyboard: Skip to canvas is the first stop and lands on the canvas", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop");
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Skip to canvas" });
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("drawing-canvas")).toBeFocused();
+});
+
+test("medium desktop width keeps the header on one row with named icon buttons", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop");
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const header = (await page.locator(".topbar").boundingBox())!;
+  expect(header.height).toBeLessThan(90);
+  for (const name of ["New", "My drawings", "Download"]) {
+    await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  }
+});

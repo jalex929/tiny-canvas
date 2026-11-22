@@ -92,3 +92,21 @@ covered by something else; plus screenshots of each state.
 | 5   | The Download button had no accessible name on phones (its text is hidden there).                    | Named "Download" on every size; browser test checks all phone header buttons have names.                                          |
 | 6   | Shape icons didn't show whether shapes would be outlined or filled; "Outline with Pen" was noisy.   | Icons draw filled or outlined to match; the option just says "Outline".                                                           |
 | 7   | Requests: Line under Tools, dashed lines, an even symmetry grid.                                    | Line tool (L) with Solid / Dashed / Dotted for any brush; Pick color tile keeps Tools in pairs; Diagonal symmetry makes 12 modes. |
+
+## Pass 7 (2026-11-22): desktop, measured
+
+Method: automated audit at 1024 × 768, 1280 × 720, 1366 × 768 and 1920 × 1080 (sideways scroll,
+panel overflow, targets under 24 px, text under 11 px, covered controls, unnamed buttons) plus a
+keyboard walk through 69 tab stops checking each shows a focus ring; a text-overflow scan over
+every tile at six sizes; screenshots.
+
+Already good: no sideways scroll, every control named, a visible focus ring on every stop.
+
+| #   | Finding                                                             | Change                                                                                       |
+| --- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 1   | Right panel overflowed 16 px at 1280 × 720.                         | Flatter symmetry previews on screens under 760 px tall.                                      |
+| 2   | At 1024 px the header wrapped to two rows, pushing the canvas down. | One row from 901–1180 px: Clear / New / My drawings become named icon buttons with tooltips. |
+| 3   | At 1024 px shortcut badges crowded tile labels.                     | Badges hidden in the narrower tools panel (shortcuts stay under "?").                        |
+| 4   | At 1024 px "New ring" spilled out of the spirograph bar.            | The bar wraps into two rows at medium widths.                                                |
+| 5   | "Show guides" was a 17 px tall target.                              | At least 24 px.                                                                              |
+| 6   | Reaching the canvas by keyboard took many Tab presses.              | "Skip to canvas" is the first stop (test-covered).                                           |

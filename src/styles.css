@@ -3477,3 +3477,82 @@ input[type="range"] {
 .shape-menu--floating .shape-menu__kind small {
   font-size: 10px;
 }
+
+/* ---------- Desktop usability pass ---------- */
+
+/* Keyboard: jump straight to the canvas. */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus-visible {
+  top: 12px;
+}
+
+/* Medium widths: header stays on one row (secondary actions become icons with tooltips). */
+@media (min-width: 901px) and (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .topbar__actions {
+    grid-column: auto;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+  .topbar__actions .button:not(.button--primary) .button__text {
+    display: none;
+  }
+  .topbar__actions .button:not(.button--primary) {
+    width: 40px;
+    padding: 0;
+  }
+  .topbar__home-text {
+    display: none;
+  }
+  .workspace {
+    height: calc(100vh - 72px);
+  }
+  /* Narrower tools panel: shortcut badges would crowd the labels (they're under "?"). */
+  .panel--brushes kbd {
+    display: none;
+  }
+}
+
+/* Short screens: flatter symmetry previews so the settings panel fits. */
+@media (max-height: 760px) {
+  .symmetry--compact .symmetry-preview {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* A comfortable click target for "Show guides". */
+.symmetry__header .check {
+  min-height: 24px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+/* Narrower canvas area: the spirograph bar wraps into two tidy rows. */
+@media (max-width: 1180px) {
+  .context-bar .spiro-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .context-bar .spiro-panel > .panel__heading {
+    grid-column: 1 / -1;
+  }
+  .context-bar .spiro-panel__actions {
+    grid-column: 1 / -1;
+  }
+  .context-bar .line-panel {
+    grid-template-columns: 1fr;
+  }
+}
