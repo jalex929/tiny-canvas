@@ -1,6 +1,7 @@
 import { normalizeHex } from "../engine/color";
 import {
   BRUSH_IDS,
+  DEFAULT_SIZE,
   SYMMETRY_MODES,
   type Action,
   type BrushId,
@@ -22,8 +23,15 @@ export interface DrawingSummary {
 }
 
 export interface Drawing extends DrawingSummary {
+  /** The canvas size the drawing started at. Canvas actions may change it later. */
+  width: number;
+  height: number;
   actions: Action[];
 }
+
+/** Smallest and largest canvas edge accepted from storage, in document pixels. */
+const MIN_EDGE = 200;
+const MAX_EDGE = 4000;
 
 /**
  * Where drawings live. The browser (IndexedDB) store is the only one today; an
@@ -41,7 +49,7 @@ export interface DrawingStore {
 /** Validates data read back from storage. Bad actions are dropped, not trusted. */
 export function parseDrawing(value: unknown): Drawing | null {
   if (!isRecord(value)) return null;
-  const { id, title, createdAt, updatedAt, thumbnail, actions } = value;
+  const { id, title, createdAt, updatedAt, thumbnail, actions, width, height } = value;
   if (typeof id !== "string" || id.length === 0) return null;
   if (typeof createdAt !== "number" || typeof updatedAt !== "number") return null;
   if (!Array.isArray(actions)) return null;
@@ -51,6 +59,9 @@ export function parseDrawing(value: unknown): Drawing | null {
     createdAt,
     updatedAt,
     thumbnail: typeof thumbnail === "string" ? thumbnail : null,
+    // Drawings saved before canvas shapes existed were all the default size.
+    width: isFiniteNumber(width) ? clamp(width, MIN_EDGE, MAX_EDGE) : DEFAULT_SIZE.width,
+    height: isFiniteNumber(height) ? clamp(height, MIN_EDGE, MAX_EDGE) : DEFAULT_SIZE.height,
     actions: actions.map(parseAction).filter((a): a is Action => a !== null),
   };
 }
@@ -62,6 +73,14 @@ export function parseAction(value: unknown): Action | null {
     const color = typeof value.color === "string" ? normalizeHex(value.color) : null;
     return color ? { type: "background", color } : null;
   }
+  if (value.type === "canvas") {
+    if (!isFiniteNumber(value.width) || !isFiniteNumber(value.height)) return null;
+    return {
+      type: "canvas",
+      width: clamp(value.width, MIN_EDGE, MAX_EDGE),
+      height: clamp(value.height, MIN_EDGE, MAX_EDGE),
+    };
+  }
   if (value.type === "stroke") {
     const stroke = parseStroke(value.stroke);
     return stroke ? { type: "stroke", stroke } : null;
@@ -71,7 +90,7 @@ export function parseAction(value: unknown): Action | null {
 
 function parseStroke(value: unknown): Stroke | null {
   if (!isRecord(value)) return null;
-  const { id, brush, color, size, opacity, symmetry, seed, points } = value;
+  const { id, brush, color, size, opacity, symmetry, seed, points, options } = value;
   if (typeof id !== "string") return null;
   if (!BRUSH_IDS.includes(brush as BrushId)) return null;
   const hex = typeof color === "string" ? normalizeHex(color) : null;
@@ -91,6 +110,7 @@ function parseStroke(value: unknown): Stroke | null {
       : "none",
     seed,
     points: parsed,
+    ...(isRecord(options) ? { options: numericEntries(options) } : {}),
   };
 }
 
@@ -101,6 +121,12 @@ export function compactStroke(stroke: Stroke): Stroke {
     ...stroke,
     points: stroke.points.map((pt) => ({ x: round(pt.x), y: round(pt.y), p: round(pt.p) })),
   };
+}
+
+function numericEntries(record: Record<string, unknown>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(record).filter((entry): entry is [string, number] => isFiniteNumber(entry[1])),
+  );
 }
 
 function isPoint(value: unknown): value is Point {

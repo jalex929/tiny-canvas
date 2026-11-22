@@ -10,11 +10,20 @@ const CSS_WIDTH = 88;
 /** A wavy sample line in a 400 × 140 box. */
 const SQUIGGLE: Point[] = Array.from({ length: 48 }, (_, i) => {
   const t = i / 47;
-  return { x: 30 + t * 340, y: 70 + Math.sin(t * Math.PI * 2.2) * 38, p: 0.35 + t * 0.4 };
+  // Pressure builds along the sample so the tiles show how brushes respond to a stylus.
+  return { x: 30 + t * 340, y: 70 + Math.sin(t * Math.PI * 2.2) * 38, p: 0.55 + t * 0.45 };
 });
 
 /** Draws a sample of the brush with the real engine, so the tile shows what you'll get. */
-export function BrushPreview({ brush, color }: { brush: BrushId; color: string }) {
+export function BrushPreview({
+  brush,
+  color,
+  options,
+}: {
+  brush: BrushId;
+  color: string;
+  options?: Record<string, number>;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -43,6 +52,7 @@ export function BrushPreview({ brush, color }: { brush: BrushId; color: string }
       symmetry: "none",
       seed: 11,
       points: SQUIGGLE,
+      ...(options ? { options } : {}),
       ...overrides,
     });
 
@@ -56,7 +66,7 @@ export function BrushPreview({ brush, color }: { brush: BrushId; color: string }
     } else {
       drawStroke(target, sample({}), scratch);
     }
-  }, [brush, color]);
+  }, [brush, color, options]);
 
   return <canvas ref={ref} className="brush-preview" aria-hidden="true" />;
 }

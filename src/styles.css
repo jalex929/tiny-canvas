@@ -1438,3 +1438,348 @@ input[type="range"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Brush groups and options ---------- */
+
+.brush-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.brush-group__label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy-60);
+}
+
+.brush-options {
+  display: grid;
+  gap: 12px;
+}
+
+.brush-options .panel__heading {
+  margin-bottom: 0;
+}
+
+.brush-options .button--quiet {
+  justify-self: start;
+  margin-left: -10px;
+}
+
+.choice-row {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.choice-row legend {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.panel--brushes .brush-options {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--navy-08);
+}
+
+.control__note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--navy-60);
+}
+
+.control__note--top {
+  margin: 0 0 10px;
+}
+
+.check--spaced {
+  margin-top: 12px;
+}
+
+.check small {
+  display: block;
+}
+
+.check input:disabled + span {
+  opacity: 0.5;
+}
+
+/* ---------- Canvas shapes ---------- */
+
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.shape-tile {
+  position: relative;
+  display: grid;
+  cursor: pointer;
+}
+
+.shape-tile input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.shape-tile__body {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 2px 6px;
+  border: 1.5px solid var(--navy-15);
+  border-radius: var(--radius-small);
+  background: var(--white);
+}
+
+.shape-tile__frame {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+}
+
+.shape-tile__frame span {
+  display: block;
+  border: 2px solid var(--navy);
+  border-radius: 3px;
+  background: var(--white);
+}
+
+.shape-tile__label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.shape-tile__ratio {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--navy-60);
+}
+
+.shape-tile:hover .shape-tile__body {
+  border-color: var(--navy-60);
+}
+
+.shape-tile input:checked + .shape-tile__body {
+  border: 2px solid var(--navy);
+  background: var(--yellow-soft);
+  padding: 7.5px 1.5px 5.5px;
+}
+
+.shape-tile input:checked + .shape-tile__body .shape-tile__frame span {
+  background: var(--yellow);
+}
+
+.shape-tile input:focus-visible + .shape-tile__body {
+  box-shadow: var(--focus);
+}
+
+/* ---------- Straight-line tool ---------- */
+
+.line-tool {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.line-tool__button,
+.line-tool__mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  border: 1.5px solid var(--navy);
+  background: var(--white);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -10px rgb(0 0 82 / 0.5);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.line-tool__button {
+  min-width: 88px;
+  padding: 0 14px;
+  border-radius: 999px 0 0 999px;
+}
+
+.line-tool__mode {
+  width: 44px;
+  border-radius: 0 999px 999px 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+.line-tool__button.is-on {
+  background: var(--navy);
+  color: var(--white);
+}
+
+.line-tool__button[aria-pressed="true"] .line-tool__label::after {
+  content: " 🔒";
+  font-size: 11px;
+}
+
+.line-tool__menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  margin: 0;
+  padding: 8px;
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  background: var(--white);
+  box-shadow: 0 16px 40px -16px rgb(0 0 82 / 0.45);
+}
+
+.line-tool__menu legend {
+  float: left;
+  width: 100%;
+  padding: 2px 6px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.line-tool__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.line-tool__option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.line-tool__option:hover,
+.line-tool__option:has(input:checked) {
+  background: var(--yellow-soft);
+}
+
+.line-tool__option:has(input:focus-visible) {
+  box-shadow: var(--focus);
+}
+
+.line-tool__symbol {
+  width: 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.workspace--phone .line-tool {
+  left: 8px;
+  bottom: 8px;
+}
+
+/* ---------- "Any color" swatch as a circle ---------- */
+
+.picker {
+  background: var(--white);
+  padding-left: 8px;
+}
+
+.picker::before {
+  content: "";
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ff5a36,
+    #ffd23f,
+    #b5e655,
+    #2ec4b6,
+    #2463eb,
+    #8b5cf6,
+    #ff6fb5,
+    #ff5a36
+  );
+  box-shadow: inset 0 0 0 1px rgb(0 0 82 / 0.2);
+}
+
+/* ---------- Drawer with four tabs ---------- */
+
+.drawer__tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.drawer__sheet .shape-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 520px) {
+  .drawer__tab {
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 2px;
+    text-align: center;
+  }
+  .drawer__tab-text {
+    justify-items: center;
+  }
+  .drawer__history .icon-button {
+    width: 36px;
+    min-height: 36px;
+  }
+}
+
+/* Equal columns even when one label is long ("Calligraphy"). */
+.brush-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.drawer__sheet .brush-grid {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+
+/* No keyboard on phones, so no shortcut badges. */
+.app--phone kbd {
+  display: none;
+}
+
+.workspace--phone .line-tool__button,
+.workspace--phone .line-tool__mode {
+  height: 40px;
+}
+
+.workspace--phone .line-tool__button {
+  min-width: 76px;
+  padding: 0 12px;
+}
+
+.workspace--phone .line-tool__mode {
+  width: 40px;
+}

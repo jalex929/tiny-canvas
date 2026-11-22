@@ -1,6 +1,6 @@
 # Tiny Canvas
 
-A pocket sketchbook in the browser. Pick from eleven brushes, turn on kaleidoscope symmetry, choose
+A pocket sketchbook in the browser. Pick from twelve brushes in four groups, turn on kaleidoscope symmetry, choose
 from 40 colors or any color at all, and download your drawing as a PNG or JPG. Drawings save
 themselves in your browser, with no account needed.
 
@@ -8,11 +8,24 @@ themselves in your browser, with no account needed.
 
 ## Features
 
-- **Brushes:** Pen (stylus pressure), Marker (multiplies where it overlaps), Pencil (grain),
-  Spray, Calligraphy (angled nib), Neon (glow), Rainbow, Sparkle (scattered shapes), Hearts, Threads
-  (web lines), Eraser.
+- **Brushes (grouped):** _Draw_: Pen, Pencil (darker with pressure), Marker (multiplies
+  where it overlaps), Calligraphy. _Paint & glow_: Spray, Neon, Rainbow. _Playful_: Sparkle,
+  Hearts, Pattern (zigzag, waves, dots, candy stripes), Threads. _Clean up_: Eraser.
+- **Brush options:** nib angle (Calligraphy), density (Spray), glow (Neon), spacing and
+  scatter (Sparkle, Hearts), style and scale (Pattern), web (Threads). Stored per stroke, so
+  re-renders and saved drawings keep them. Tile previews update live.
+- **Canvas shapes:** Square, Landscape 4:3, Portrait 3:4, Wide 16:9, Tall 9:16 (~2 MP each).
+  New drawings start square on phones and 4:3 on larger screens. Changing shape is undoable
+  and keeps the drawing centered.
+- **Straight lines:** hold Shift (snaps when within 6° of flat, upright or 45°), or use the
+  Line hotspot: hold it with one thumb while drawing, or tap to lock it on (L). Angle choices:
+  any, horizontal, vertical, 45° up, 45° down.
+- **Pen pressure:** Apple Pencil / Surface Pen / Wacom / Android stylus pressure via Pointer
+  Events. Full pressure = full brush size, lightest touch = 15%. Curves: Soft, Normal, Firm,
+  Off; readings are smoothed. Once a stylus is detected, "Only the pen draws" (on by default)
+  makes fingers pan and zoom instead of drawing (palm rejection).
 - **Effects:** symmetry off / mirror / mirror ×4 / radial ×6 / kaleidoscope ×12, each shown as a
-  picture drawn by the engine, with guide lines on the canvas (not exported); size; opacity;
+  picture drawn by the engine; optional guide lines on the canvas (never exported); size; opacity;
   background color (undoable).
 - **Color:** 40 named swatches, native color picker, hex entry, recent colors.
 - **History:** unlimited undo/redo; Clear is undoable, with an Undo button in the toast.
@@ -23,7 +36,8 @@ themselves in your browser, with no account needed.
 - **Phone layout (≤900px wide):** full-screen canvas with a bottom drawer (Brush, Color,
   Effects) and Undo/Redo within thumb reach. The drawer pushes the canvas up rather than
   covering it.
-- **Download:** PNG (optional transparent background) or JPG, at 3200 × 2400.
+- **Download:** PNG (optional transparent background) or JPG, at twice the canvas size
+  (e.g. 3200 × 2400 for landscape, 2800 × 2800 for square).
 
 ## Controls
 
@@ -77,11 +91,11 @@ an automated accessibility scan. Treat accessibility as designed-for, not audite
 - A second finger turns a stroke into a pinch: strokes under 0.3 s old are dropped, older ones
   are kept. Two-finger tap-to-undo isn't implemented.
 - While zooming, the view is briefly stretched from the last render, then re-rendered sharply.
-- The canvas is always landscape (4:3); on a portrait phone it uses about half the screen
-  until you zoom.
+- Pressure was tested with emulated input only; not yet on a real stylus.
+- Changing canvas shape trims marks that fall outside the new edges (Undo restores them).
 - Fonts load from Google Fonts; offline, the system fallback fonts are used.
 
 ## Next improvements (not started)
 
-Real-device pass (phone + stylus), short demo recording, portrait canvas option, stroke
-replay, layers.
+Real-device pass (phone + stylus), short demo recording, stroke replay, layers, custom canvas
+size.

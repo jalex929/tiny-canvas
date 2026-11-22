@@ -1,6 +1,7 @@
 import { BRUSHES } from "./brushes";
 import { createRandom } from "./random";
 import { applyMatrix, symmetryMatrices, type Matrix } from "./symmetry";
+import type { PlacedStroke } from "./history";
 import { DOC_HEIGHT, DOC_WIDTH, type Stroke } from "./types";
 
 /**
@@ -13,6 +14,19 @@ export interface RenderTarget {
   originX?: number;
   originY?: number;
 }
+
+/**
+ * Where a stroke sits: its offset on the current canvas, and the size of the canvas it was
+ * drawn on (its symmetry center). Defaults to the original 1600 × 1200 canvas, no offset.
+ */
+export interface StrokeFrame {
+  dx: number;
+  dy: number;
+  width: number;
+  height: number;
+}
+
+const DEFAULT_FRAME: StrokeFrame = { dx: 0, dy: 0, width: DOC_WIDTH, height: DOC_HEIGHT };
 
 interface Box {
   x: number;
@@ -28,10 +42,18 @@ interface Box {
  * then composited once. Otherwise overlapping parts of a single stroke, and symmetry
  * copies that cross each other, would build up darker patches.
  */
-export function drawStroke(target: RenderTarget, stroke: Stroke, scratch: RenderTarget): void {
+export function drawStroke(
+  baseTarget: RenderTarget,
+  stroke: Stroke,
+  baseScratch: RenderTarget,
+  frame: StrokeFrame = DEFAULT_FRAME,
+): void {
   const brush = BRUSHES[stroke.brush];
-  const matrices = symmetryMatrices(stroke.symmetry, DOC_WIDTH, DOC_HEIGHT);
-  const isolate = stroke.opacity < 1 || brush.composite === "multiply";
+  const matrices = symmetryMatrices(stroke.symmetry, frame.width, frame.height);
+  const target = shifted(baseTarget, frame);
+  const scratch = shifted(baseScratch, frame);
+  const alpha = stroke.opacity * (brush.strokeAlpha ?? 1);
+  const isolate = alpha < 1 || brush.composite === "multiply";
 
   if (!isolate) {
     target.ctx.save();
@@ -50,24 +72,37 @@ export function drawStroke(target: RenderTarget, stroke: Stroke, scratch: Render
   layer.beginPath();
   layer.rect(box.x, box.y, box.w, box.h);
   layer.clip();
-  paintCopies({ ...target, ctx: layer }, stroke, matrices);
+  paintCopies({ ...scratch, ctx: layer }, stroke, matrices);
   layer.restore();
 
   const ctx = target.ctx;
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = stroke.opacity;
+  ctx.globalAlpha = alpha;
   ctx.globalCompositeOperation = brush.composite;
   ctx.drawImage(layer.canvas, box.x, box.y, box.w, box.h, box.x, box.y, box.w, box.h);
   ctx.restore();
 }
 
+export function drawPlaced(target: RenderTarget, placed: PlacedStroke, scratch: RenderTarget) {
+  drawStroke(target, placed.stroke, scratch, placed);
+}
+
 export function drawStrokes(
   target: RenderTarget,
-  strokes: readonly Stroke[],
+  strokes: readonly PlacedStroke[],
   scratch: RenderTarget,
 ) {
-  for (const stroke of strokes) drawStroke(target, stroke, scratch);
+  for (const placed of strokes) drawPlaced(target, placed, scratch);
+}
+
+function shifted(target: RenderTarget, frame: StrokeFrame): RenderTarget {
+  if (!frame.dx && !frame.dy) return target;
+  return {
+    ...target,
+    originX: (target.originX ?? 0) + frame.dx * target.scale,
+    originY: (target.originY ?? 0) + frame.dy * target.scale,
+  };
 }
 
 function paintCopies(target: RenderTarget, stroke: Stroke, matrices: Matrix[]) {

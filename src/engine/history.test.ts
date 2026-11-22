@@ -13,7 +13,7 @@ const stroke = (id: string, points = [{ x: 1, y: 2, p: 0.5 }]): Stroke => ({
   points,
 });
 const draw = (id: string): Action => ({ type: "stroke", stroke: stroke(id) });
-const ids = (actions: Action[]) => sceneFrom(actions).strokes.map((s) => s.id);
+const ids = (actions: Action[]) => sceneFrom(actions).strokes.map((s) => s.stroke.id);
 
 describe("history", () => {
   it("starts empty with nothing to undo or redo", () => {
@@ -71,8 +71,39 @@ describe("history", () => {
     let h = commit(createHistory(), { type: "background", color: "#000052" });
     h = commit(h, draw("a"));
     h = commit(h, { type: "clear" });
-    expect(sceneFrom(h.past)).toEqual({ background: "#000052", strokes: [] });
+    expect(sceneFrom(h.past)).toEqual({
+      background: "#000052",
+      width: 1600,
+      height: 1200,
+      strokes: [],
+    });
     h = undo(undo(undo(h)));
     expect(sceneFrom(h.past).background).toBe("#ffffff");
+  });
+
+  it("starts at the size it was created with and keeps it through undo", () => {
+    let h = createHistory([], { width: 1400, height: 1400 });
+    h = commit(h, draw("a"));
+    h = undo(h);
+    expect(h.size).toEqual({ width: 1400, height: 1400 });
+    expect(sceneFrom(h.past, h.size)).toMatchObject({ width: 1400, height: 1400 });
+  });
+
+  it("changing the canvas shape keeps earlier marks centered, and can be undone", () => {
+    let h = commit(createHistory([], { width: 1600, height: 1200 }), draw("a"));
+    h = commit(h, { type: "canvas", width: 1400, height: 1400 });
+    h = commit(h, draw("b"));
+    const scene = sceneFrom(h.past, h.size);
+    expect(scene).toMatchObject({ width: 1400, height: 1400 });
+    expect(scene.strokes[0]).toMatchObject({ dx: -100, dy: 100, width: 1600, height: 1200 });
+    expect(scene.strokes[1]).toMatchObject({ dx: 0, dy: 0, width: 1400, height: 1400 });
+    h = undo(undo(h));
+    expect(sceneFrom(h.past, h.size)).toMatchObject({ width: 1600, height: 1200 });
+    expect(sceneFrom(h.past, h.size).strokes[0]).toMatchObject({ dx: 0, dy: 0 });
+  });
+
+  it("ignores switching to the shape it already has", () => {
+    const h = createHistory([], { width: 1400, height: 1400 });
+    expect(commit(h, { type: "canvas", width: 1400, height: 1400 })).toBe(h);
   });
 });

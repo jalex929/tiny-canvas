@@ -1,6 +1,5 @@
 import type { Scene } from "../engine/history";
 import { drawStrokes } from "../engine/render";
-import { DOC_HEIGHT, DOC_WIDTH } from "../engine/types";
 
 export type ImageFormat = "png" | "jpeg";
 
@@ -22,8 +21,8 @@ export function renderScene(
   width: number,
   options: { transparent?: boolean } = {},
 ): HTMLCanvasElement {
-  const scale = width / DOC_WIDTH;
-  const height = DOC_HEIGHT * scale;
+  const scale = width / scene.width;
+  const height = scene.height * scale;
   const out = makeCanvas(width, height);
   const ink = makeCanvas(width, height);
   const scratch = makeCanvas(width, height);
@@ -36,8 +35,12 @@ export function renderScene(
   return out.canvas;
 }
 
-/** Export is twice the document size (3200 × 2400) so prints and zooms stay crisp. */
-export const EXPORT_WIDTH = DOC_WIDTH * 2;
+/** Export is twice the document size (e.g. 3200 × 2400) so prints and zooms stay crisp. */
+export const EXPORT_SCALE = 2;
+
+export function exportSize(scene: { width: number; height: number }) {
+  return { width: scene.width * EXPORT_SCALE, height: scene.height * EXPORT_SCALE };
+}
 
 export async function downloadImage(
   scene: Scene,
@@ -46,7 +49,9 @@ export async function downloadImage(
   transparent = false,
 ): Promise<void> {
   // JPG has no transparency, so it always gets the background.
-  const canvas = renderScene(scene, EXPORT_WIDTH, { transparent: format === "png" && transparent });
+  const canvas = renderScene(scene, exportSize(scene).width, {
+    transparent: format === "png" && transparent,
+  });
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, `image/${format}`, 0.92),
   );
@@ -62,7 +67,9 @@ export async function downloadImage(
 }
 
 export function thumbnail(scene: Scene): string {
-  return renderScene(scene, 320).toDataURL("image/jpeg", 0.8);
+  // Fit the longer side to 320px whatever the shape.
+  const width = scene.width >= scene.height ? 320 : (320 * scene.width) / scene.height;
+  return renderScene(scene, width).toDataURL("image/jpeg", 0.8);
 }
 
 export function fileSlug(title: string): string {

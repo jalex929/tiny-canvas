@@ -25,6 +25,8 @@ const savedDrawing: Drawing = {
   createdAt: 1,
   updatedAt: 2,
   thumbnail: null,
+  width: 1400,
+  height: 1400,
   actions: [{ type: "background", color: "#000052" }],
 };
 
@@ -52,8 +54,10 @@ describe("App", () => {
 
   it("switches brushes from the keyboard", async () => {
     render(<App store={null} />);
-    await userEvent.keyboard("4");
+    await userEvent.keyboard("5");
     expect(screen.getByRole("radio", { name: "Spray" })).toBeChecked();
+    await userEvent.keyboard("0");
+    expect(screen.getByRole("radio", { name: "Pattern" })).toBeChecked();
     await userEvent.keyboard("e");
     expect(screen.getByRole("radio", { name: "Eraser" })).toBeChecked();
     await userEvent.keyboard("e");

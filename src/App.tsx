@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BRUSHES } from "./engine/brushes";
+import { BRUSHES, defaultOptions } from "./engine/brushes";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
+import type { PressureCurve } from "./engine/pressure";
 import {
   BRUSH_IDS,
+  CANVAS_SHAPES,
   type Action,
+  type CanvasShapeId,
+  type CanvasSize,
   type BrushId,
   type History,
   type Stroke,
@@ -14,11 +18,13 @@ import { compactStroke, type DrawingStore, type DrawingSummary } from "./storage
 import { CanvasStage, type StrokeTemplate } from "./ui/CanvasStage";
 import { DrawingsDialog } from "./ui/DrawingsDialog";
 import { ExportMenu } from "./ui/ExportMenu";
-import { downloadImage, thumbnail, type ImageFormat } from "./ui/exportImage";
+import { downloadImage, exportSize, thumbnail, type ImageFormat } from "./ui/exportImage";
 import { Icon } from "./ui/Icon";
 import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
+  BrushOptionsPanel,
   BrushPicker,
+  CanvasPanel,
   ColorPanel,
   EffectsPanel,
   SIZE_MAX,
@@ -39,6 +45,18 @@ interface DrawingMeta {
 }
 
 const LAST_OPEN_KEY = "tiny-canvas:last-open";
+const GUIDES_KEY = "tiny-canvas:show-guides";
+const PHONE_QUERY = "(max-width: 900px)";
+
+/** New drawings start square on phones and landscape 4:3 on bigger screens. */
+function deviceDefaultSize(): CanvasSize {
+  const phone =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(PHONE_QUERY).matches;
+  const shape = CANVAS_SHAPES.find((c) => c.id === (phone ? "square" : "landscape"))!;
+  return { ...shape.size };
+}
 
 const newMeta = (): DrawingMeta => {
   const now = Date.now();
@@ -73,7 +91,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [store] = useState(() =>
     injectedStore === undefined ? createBrowserStore() : injectedStore,
   );
-  const [history, setHistory] = useState<History>(createHistory);
+  const [history, setHistory] = useState<History>(() => createHistory([], deviceDefaultSize()));
   const [meta, setMeta] = useState<DrawingMeta>(newMeta);
   const [brush, setBrush] = useState<BrushId>("pen");
   const [sizes, setSizes] = useState(
@@ -93,9 +111,27 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [shelf, setShelf] = useState<DrawingSummary[] | "loading" | "error">("loading");
   const [message, setMessage] = useState<{ text: string; undo?: boolean } | null>(null);
   const [drawerTab, setDrawerTab] = useState<DrawerTab | null>(null);
-  const isPhone = useMediaQuery("(max-width: 900px)");
+  const isPhone = useMediaQuery(PHONE_QUERY);
+  const [brushOptions, setBrushOptions] = useState(
+    () =>
+      Object.fromEntries(BRUSH_IDS.map((id) => [id, defaultOptions(id)])) as Record<
+        BrushId,
+        Record<string, number>
+      >,
+  );
+  const [pressureCurve, setPressureCurve] = useState<PressureCurve>("normal");
+  const [penOnlySetting, setPenOnlySetting] = useState(true);
+  const [penDetected, setPenDetected] = useState(false);
+  const [showGuides, setShowGuidesState] = useState(() => safeStorage.get(GUIDES_KEY) !== "off");
+  const setShowGuides = (value: boolean) => {
+    setShowGuidesState(value);
+    safeStorage.set(GUIDES_KEY, value ? "on" : "off");
+  };
 
-  const scene = useMemo(() => sceneFrom(history.past), [history.past]);
+  const scene = useMemo(() => sceneFrom(history.past, history.size), [history.past, history.size]);
+  const shapeId: CanvasShapeId | null =
+    CANVAS_SHAPES.find((c) => c.size.width === scene.width && c.size.height === scene.height)?.id ??
+    null;
   const size = sizes[brush];
 
   // --- Saving -----------------------------------------------------------------------------
@@ -117,6 +153,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         createdAt: m.createdAt,
         updatedAt: Date.now(),
         thumbnail: thumbnail(s),
+        width: h.size.width,
+        height: h.size.height,
         actions: h.past,
       });
       safeStorage.set(LAST_OPEN_KEY, m.id);
@@ -160,7 +198,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         const current = latest.current;
         if (cancelled || !drawing || current.history.past.length > 0 || current.meta.persisted)
           return;
-        setHistory(createHistory(drawing.actions));
+        setHistory(
+          createHistory(drawing.actions, { width: drawing.width, height: drawing.height }),
+        );
         setMeta({
           id: drawing.id,
           title: drawing.title,
@@ -193,7 +233,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   const startNew = async () => {
     await saveNow();
-    setHistory(createHistory());
+    setHistory(createHistory([], deviceDefaultSize()));
     setMeta(newMeta());
     setSaveStatus(store ? "idle" : "unavailable");
     setShelfOpen(false);
@@ -206,7 +246,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     try {
       const drawing = await store?.get(id);
       if (!drawing) throw new Error("missing");
-      setHistory(createHistory(drawing.actions));
+      setHistory(createHistory(drawing.actions, { width: drawing.width, height: drawing.height }));
       setMeta({
         id: drawing.id,
         title: drawing.title,
@@ -228,7 +268,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       if (id === meta.id) {
         if (pendingSave.current) clearTimeout(pendingSave.current);
         pendingSave.current = null;
-        setHistory(createHistory());
+        setHistory(createHistory([], deviceDefaultSize()));
         setMeta(newMeta());
         setSaveStatus("idle");
       }
@@ -281,10 +321,24 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     }
   };
 
+  const options = brushOptions[brush];
   const template: StrokeTemplate = useMemo(
-    () => ({ brush, color, size, opacity, symmetry }),
-    [brush, color, size, opacity, symmetry],
+    () => ({ brush, color, size, opacity, symmetry, options }),
+    [brush, color, size, opacity, symmetry, options],
   );
+
+  const setOption = (key: string, value: number) =>
+    setBrushOptions((all) => ({ ...all, [brush]: { ...all[brush], [key]: value } }));
+
+  const changeShape = (id: CanvasShapeId) => {
+    const option = CANVAS_SHAPES.find((c) => c.id === id)!;
+    apply({ type: "canvas", ...option.size });
+    if (scene.strokes.length > 0) {
+      setMessage({ text: `Canvas is now ${option.label.toLowerCase()}.`, undo: true });
+    }
+  };
+
+  const onPenDetected = useCallback(() => setPenDetected(true), []);
 
   // --- Keyboard shortcuts --------------------------------------------------------------------
 
@@ -331,7 +385,12 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   };
 
   const panels = {
-    brush: <BrushPicker brush={brush} color={color} onChange={setBrush} />,
+    brush: (
+      <>
+        <BrushPicker brush={brush} color={color} options={brushOptions} onChange={setBrush} />
+        <BrushOptionsPanel brush={brush} values={options} onChange={setOption} />
+      </>
+    ),
     color: (
       <ColorPanel
         color={color}
@@ -349,9 +408,23 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         onOpacity={setOpacity}
         symmetry={symmetry}
         onSymmetry={setSymmetry}
+        showGuides={showGuides}
+        onShowGuides={setShowGuides}
         background={scene.background}
         onBackground={(hex) => apply({ type: "background", color: hex })}
         color={color}
+      />
+    ),
+    canvas: (
+      <CanvasPanel
+        shape={shapeId}
+        hasMarks={scene.strokes.length > 0}
+        onShape={changeShape}
+        pressureCurve={pressureCurve}
+        onPressureCurve={setPressureCurve}
+        penOnly={penOnlySetting}
+        onPenOnly={setPenOnlySetting}
+        penDetected={penDetected}
       />
     ),
   };
@@ -360,6 +433,10 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     <CanvasStage
       scene={scene}
       template={template}
+      showGuides={showGuides}
+      pressureCurve={pressureCurve}
+      penOnly={penOnlySetting && penDetected}
+      onPenDetected={onPenDetected}
       onCommit={onCommit}
       onAnnounce={(text) => setMessage({ text })}
     />
@@ -438,7 +515,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             <Icon name="shelf" />
             <span className="button__text">My drawings</span>
           </button>
-          <ExportMenu disabled={false} onExport={exportImage} />
+          <ExportMenu disabled={false} size={exportSize(scene)} onExport={exportImage} />
         </div>
       </header>
 
@@ -451,6 +528,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             brush={brush}
             color={color}
             symmetry={symmetry}
+            shape={CANVAS_SHAPES.find((c) => c.id === shapeId)?.label ?? "Custom"}
             canUndo={canUndo(history)}
             canRedo={canRedo(history)}
             onUndo={doUndo}
@@ -465,6 +543,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           <div className="panel panel--settings" role="region" aria-label="Color and effects">
             {panels.color}
             {panels.effects}
+            {panels.canvas}
             <ShortcutsHelp />
           </div>
         </main>

@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Scene } from "../engine/history";
+import type { PlacedStroke, Scene } from "../engine/history";
+import {
+  LINE_MODES,
+  LINE_MODE_INFO,
+  constrainLine,
+  linePoints,
+  type LineMode,
+} from "../engine/lines";
+import { shapePressure, smoothPressure, type PressureCurve } from "../engine/pressure";
 import { randomSeed } from "../engine/random";
-import { drawStroke, drawStrokes, type RenderTarget } from "../engine/render";
+import { drawPlaced, drawStroke, drawStrokes, type RenderTarget } from "../engine/render";
 import { symmetryGuides } from "../engine/symmetry";
-import { DOC_HEIGHT, DOC_WIDTH, type Point, type Stroke } from "../engine/types";
+import type { Point, Stroke } from "../engine/types";
 import {
   ensureVisible,
   fitView,
@@ -25,6 +33,11 @@ export type StrokeTemplate = Omit<Stroke, "id" | "seed" | "points">;
 interface Props {
   scene: Scene;
   template: StrokeTemplate;
+  showGuides: boolean;
+  pressureCurve: PressureCurve;
+  /** When a stylus is in use, fingers only move and zoom (palm rejection). */
+  penOnly: boolean;
+  onPenDetected: () => void;
   onCommit: (stroke: Stroke) => void;
   onAnnounce: (message: string) => void;
 }
@@ -48,6 +61,11 @@ interface LiveStroke {
   stroke: Stroke;
   pointerId: number | "keyboard";
   startedAt: number;
+  /** Where a straight line starts: the last freehand point… */
+  anchor: Point;
+  /** …and its index, so a line replaces only what comes after it. */
+  anchorIndex: number;
+  lastPressure?: number;
 }
 
 const KEY_STEP = 10;
@@ -59,16 +77,27 @@ const PINCH_GRACE_MS = 300;
 /** Re-render crisply this long after zooming or panning stops. */
 const SETTLE_MS = 140;
 const ZOOM_STEP = 1.25;
+/** A press on the Line button shorter than this toggles it on/off instead of holding. */
+const TAP_MS = 250;
 
 let strokeCounter = 0;
 const newStrokeId = () => `${Date.now().toString(36)}-${(strokeCounter++).toString(36)}`;
 
-export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
+export function CanvasStage({
+  scene,
+  template,
+  showGuides,
+  pressureCurve,
+  penOnly,
+  onPenDetected,
+  onCommit,
+  onAnnounce,
+}: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const layersRef = useRef<Layers | null>(null);
   const dprRef = useRef(1);
-  const drawnRef = useRef<Stroke[]>([]);
+  const drawnRef = useRef<PlacedStroke[]>([]);
   const liveRef = useRef<LiveStroke | null>(null);
   const frameRef = useRef(0);
   const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,6 +106,8 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
   /** After a two-finger gesture, ignore touches until every finger has lifted. */
   const suppressTouchRef = useRef(false);
 
+  const doc: Size = { width: scene.width, height: scene.height };
+  const docRef = useRef(doc);
   const [stage, setStage] = useState<Size>({ width: 0, height: 0 });
   const stageSizeRef = useRef(stage);
   const [view, setViewState] = useState<View>({ s: 0, x: 0, y: 0 });
@@ -85,12 +116,23 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
   const [handMode, setHandMode] = useState(false);
   const [panning, setPanning] = useState(false);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
-  const [keyCursor, setKeyCursor] = useState({ x: DOC_WIDTH / 2, y: DOC_HEIGHT / 2 });
+  const [keyCursor, setKeyCursor] = useState({ x: scene.width / 2, y: scene.height / 2 });
   const [keyboardActive, setKeyboardActive] = useState(false);
   const [penDown, setPenDown] = useState(false);
 
+  // Straight lines: Shift (desktop), holding the Line button, or the Line button locked on.
+  const [lineMode, setLineMode] = useState<LineMode>("any");
+  const [lineLocked, setLineLocked] = useState(false);
+  const [lineHeld, setLineHeld] = useState(false);
+  const [lineMenuOpen, setLineMenuOpen] = useState(false);
+  const lineButtonDown = useRef<{ at: number; usedForLine: boolean } | null>(null);
+  const lineRef = useRef({ active: false, mode: lineMode });
+  lineRef.current = { active: lineLocked || lineHeld, mode: lineMode };
+
   const templateRef = useRef(template);
   templateRef.current = template;
+  const pressureRef = useRef({ curve: pressureCurve, penOnly });
+  pressureRef.current = { curve: pressureCurve, penOnly };
   const strokesRef = useRef(scene.strokes);
   strokesRef.current = scene.strokes;
 
@@ -99,10 +141,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     setViewState(next);
   }, []);
 
-  /**
-   * Composites the frame: the cached finished strokes (stretched to the current view if
-   * a zoom is still settling), then the stroke being drawn, clipped to the paper.
-   */
+  /** Composites the frame: cached strokes (stretched while a zoom settles) + live stroke. */
   const paintFrame = useCallback(() => {
     frameRef.current = 0;
     const layers = layersRef.current;
@@ -110,13 +149,14 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     const ctx = layers.display;
     const v = viewRef.current;
     const dpr = dprRef.current;
+    const d = docRef.current;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.save();
     ctx.beginPath();
-    ctx.rect(v.x * dpr, v.y * dpr, DOC_WIDTH * v.s * dpr, DOC_HEIGHT * v.s * dpr);
+    ctx.rect(v.x * dpr, v.y * dpr, d.width * v.s * dpr, d.height * v.s * dpr);
     ctx.clip();
     const cv = cacheViewRef.current;
     if (cv) {
@@ -127,7 +167,12 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     }
     const live = liveRef.current;
     if (live) {
-      drawStroke(targetFor(ctx, v, dpr), live.stroke, targetFor(layers.scratch, v, dpr));
+      drawStroke(targetFor(ctx, v, dpr), live.stroke, targetFor(layers.scratch, v, dpr), {
+        dx: 0,
+        dy: 0,
+        width: d.width,
+        height: d.height,
+      });
     }
     ctx.restore();
   }, []);
@@ -138,7 +183,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
 
   /** Re-renders every finished stroke at the current view. Used on zoom, resize and undo. */
   const rebuildCache = useCallback(
-    (strokes: Stroke[]) => {
+    (strokes: PlacedStroke[]) => {
       drawnRef.current = strokes;
       const layers = layersRef.current;
       if (!layers) return;
@@ -188,11 +233,24 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     const scratch = make();
     const previous = stageSizeRef.current;
     stageSizeRef.current = stage;
-    setView(viewRef.current.s > 0 ? resizeView(viewRef.current, previous, stage) : fitView(stage));
+    setView(
+      viewRef.current.s > 0
+        ? resizeView(viewRef.current, previous, stage, docRef.current)
+        : fitView(stage, docRef.current),
+    );
     if (!display || !cache || !scratch) return;
     layersRef.current = { display, cache, scratch };
     rebuildCache(strokesRef.current);
   }, [stage, rebuildCache, setView]);
+
+  // A different canvas shape (or another drawing): fit it to the screen.
+  useEffect(() => {
+    const changed = docRef.current.width !== scene.width || docRef.current.height !== scene.height;
+    docRef.current = { width: scene.width, height: scene.height };
+    if (!changed || stageSizeRef.current.width <= 1) return;
+    setView(fitView(stageSizeRef.current, docRef.current));
+    setKeyCursor({ x: scene.width / 2, y: scene.height / 2 });
+  }, [scene.width, scene.height, setView]);
 
   // When the view moves: show it immediately (stretched), then re-render crisply.
   useEffect(() => {
@@ -209,13 +267,15 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     const previous = drawnRef.current;
     const next = scene.strokes;
     if (next === previous) return;
+    const same = (a: PlacedStroke, b: PlacedStroke | undefined) =>
+      !!b && a.stroke === b.stroke && a.dx === b.dx && a.dy === b.dy;
     const appendedOne =
-      next.length === previous.length + 1 && previous.every((stroke, i) => next[i] === stroke);
+      next.length === previous.length + 1 && previous.every((p, i) => same(p, next[i]));
     const layers = layersRef.current;
     const cv = cacheViewRef.current;
     if (appendedOne && layers && cv && sameView(cv, viewRef.current)) {
       const dpr = dprRef.current;
-      drawStroke(
+      drawPlaced(
         targetFor(layers.cache, cv, dpr),
         next[next.length - 1]!,
         targetFor(layers.scratch, cv, dpr),
@@ -244,13 +304,13 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     (factor: number, at?: { x: number; y: number }) => {
       const size = stageSizeRef.current;
       const point = at ?? { x: size.width / 2, y: size.height / 2 };
-      setView(zoomAt(viewRef.current, factor, point.x, point.y, size));
+      setView(zoomAt(viewRef.current, factor, point.x, point.y, size, docRef.current));
     },
     [setView],
   );
-  const fit = useCallback(() => setView(fitView(stageSizeRef.current)), [setView]);
+  const fit = useCallback(() => setView(fitView(stageSizeRef.current, docRef.current)), [setView]);
 
-  // Zoom shortcuts work anywhere on the page.
+  // Zoom and line shortcuts work anywhere on the page.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (shouldIgnoreShortcut(event) || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -258,6 +318,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
       else if (event.key === "-" || event.key === "_") zoomBy(1 / ZOOM_STEP);
       else if (event.key === "f" || event.key === "F") fit();
       else if (event.key === "h" || event.key === "H") setHandMode((v) => !v);
+      else if (event.key === "l" || event.key === "L") setLineLocked((v) => !v);
       else return;
       event.preventDefault();
     };
@@ -284,7 +345,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
         });
       } else {
         const [px, py] = event.shiftKey && !dx ? [dy, 0] : [dx, dy];
-        setView(panBy(viewRef.current, -px, -py, stageSizeRef.current));
+        setView(panBy(viewRef.current, -px, -py, stageSizeRef.current, docRef.current));
       }
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -306,17 +367,33 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     liveRef.current = {
       pointerId,
       startedAt: performance.now(),
+      anchor: point,
+      anchorIndex: 0,
+      lastPressure: point.p,
       stroke: { ...templateRef.current, id: newStrokeId(), seed: randomSeed(), points: [point] },
     };
     requestFrame();
   };
 
-  const extend = (point: Point) => {
+  /** Adds a point; in line mode, redraws the stroke as a straight line to it instead. */
+  const extend = (point: Point, straight: boolean) => {
     const live = liveRef.current;
     if (!live) return;
+    if (straight) {
+      if (lineButtonDown.current) lineButtonDown.current.usedForLine = true;
+      const end = constrainLine(live.anchor, point, lineRef.current.mode);
+      // Keep any freehand part drawn before the line started.
+      const before = live.stroke.points.slice(0, live.anchorIndex);
+      live.stroke.points = [...before, ...linePoints(live.anchor, end)];
+      requestFrame();
+      return;
+    }
     const last = live.stroke.points[live.stroke.points.length - 1];
     if (last && Math.hypot(point.x - last.x, point.y - last.y) < MIN_SAMPLE_DISTANCE) return;
     live.stroke.points.push(point);
+    // Freehand moves the anchor along, so a line started mid-stroke begins from here.
+    live.anchor = point;
+    live.anchorIndex = live.stroke.points.length - 1;
     requestFrame();
   };
 
@@ -327,8 +404,11 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     requestFrame();
   };
 
-  const pressureOf = (event: PointerEvent | React.PointerEvent) =>
-    event.pointerType === "pen" && event.pressure > 0 ? event.pressure : 0.5;
+  /** Stored pressure: real stylus pressure through the chosen curve, otherwise full. */
+  const pressureOf = (event: PointerEvent | React.PointerEvent, previous?: number) => {
+    if (event.pointerType !== "pen" || !(event.pressure > 0)) return 1;
+    return smoothPressure(previous, shapePressure(event.pressure, pressureRef.current.curve));
+  };
 
   const startPinch = () => {
     const [a, b] = [...touchesRef.current.values()];
@@ -341,8 +421,19 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     };
   };
 
+  const startPan = (
+    event: React.PointerEvent<HTMLCanvasElement>,
+    point: { x: number; y: number },
+  ) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    gestureRef.current = { kind: "pan", pointerId: event.pointerId, last: point };
+    setPanning(true);
+  };
+
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const point = local(event);
+    if (event.pointerType === "pen") onPenDetected();
     if (event.pointerType === "touch") {
       touchesRef.current.set(event.pointerId, point);
       if (touchesRef.current.size >= 2) {
@@ -353,20 +444,21 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
           finish(performance.now() - live.startedAt > PINCH_GRACE_MS);
         }
         gestureRef.current = null;
+        setPanning(false);
         suppressTouchRef.current = true;
         startPinch();
         return;
       }
       if (suppressTouchRef.current) return;
+      // Palm rejection: with a stylus in use, a finger moves the view instead of drawing.
+      if (pressureRef.current.penOnly) {
+        startPan(event, point);
+        return;
+      }
     }
 
-    const wantsPan =
-      event.button === 1 || (handMode && (event.button === 0 || event.pointerType === "touch"));
-    if (wantsPan) {
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-      gestureRef.current = { kind: "pan", pointerId: event.pointerId, last: point };
-      setPanning(true);
+    if (event.button === 1 || (handMode && (event.button === 0 || event.pointerType === "touch"))) {
+      startPan(event, point);
       return;
     }
     if (liveRef.current || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -394,6 +486,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
             { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
             Math.hypot(a.x - b.x, a.y - b.y),
             stageSizeRef.current,
+            docRef.current,
           ),
         );
       }
@@ -406,6 +499,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
           point.x - gesture.last.x,
           point.y - gesture.last.y,
           stageSizeRef.current,
+          docRef.current,
         ),
       );
       gesture.last = point;
@@ -414,9 +508,15 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
 
     const live = liveRef.current;
     if (!live || live.pointerId !== event.pointerId) return;
+    if (event.shiftKey || lineRef.current.active) {
+      extend({ ...toDoc(event), p: live.anchor.p }, true);
+      return;
+    }
     const samples = event.nativeEvent.getCoalescedEvents?.() ?? [];
     for (const sample of samples.length ? samples : [event.nativeEvent]) {
-      extend({ ...toDoc(sample), p: pressureOf(sample) });
+      const p = pressureOf(sample, live.lastPressure);
+      live.lastPressure = p;
+      extend({ ...toDoc(sample), p }, false);
     }
   };
 
@@ -450,12 +550,12 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
       event.preventDefault();
       setKeyboardActive(true);
       const next = {
-        x: clamp(keyCursor.x + move[0], 0, DOC_WIDTH),
-        y: clamp(keyCursor.y + move[1], 0, DOC_HEIGHT),
+        x: clamp(keyCursor.x + move[0], 0, scene.width),
+        y: clamp(keyCursor.y + move[1], 0, scene.height),
       };
       setKeyCursor(next);
-      setView(ensureVisible(viewRef.current, next.x, next.y, stageSizeRef.current));
-      if (penDown) extend({ ...next, p: 0.5 });
+      setView(ensureVisible(viewRef.current, next.x, next.y, stageSizeRef.current, docRef.current));
+      if (penDown) extend({ ...next, p: 1 }, false);
       return;
     }
     if (event.key === " " || event.key === "Enter") {
@@ -466,9 +566,11 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
         setPenDown(false);
         onAnnounce("Line finished.");
       } else {
-        begin({ ...keyCursor, p: 0.5 }, "keyboard");
+        begin({ ...keyCursor, p: 1 }, "keyboard");
         setPenDown(true);
-        onAnnounce(`Drawing from ${describe(keyCursor)}. Use arrow keys, then Space to finish.`);
+        onAnnounce(
+          `Drawing from ${describe(keyCursor, scene)}. Use arrow keys, then Space to finish.`,
+        );
       }
       return;
     }
@@ -488,17 +590,37 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
     setKeyboardActive(false);
   };
 
+  // ---- Line button: hold for straight lines, or tap to lock it on ---------------------------
+
+  const onLineDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    lineButtonDown.current = { at: performance.now(), usedForLine: false };
+    setLineHeld(true);
+  };
+  const onLineUp = () => {
+    const down = lineButtonDown.current;
+    lineButtonDown.current = null;
+    setLineHeld(false);
+    if (down && !down.usedForLine && performance.now() - down.at < TAP_MS) {
+      const next = !lineLocked;
+      setLineLocked(next);
+      onAnnounce(next ? "Straight lines on." : "Straight lines off.");
+    }
+  };
+
   // ---- Render -----------------------------------------------------------------------------
 
   const ready = view.s > 0;
-  const zoomPercent = ready ? Math.round(zoomOf(view, stage) * 100) : 100;
+  const zoomPercent = ready ? Math.round(zoomOf(view, stage, doc) * 100) : 100;
   const ringSize = template.size * view.s;
   const toStage = (p: { x: number; y: number }) => ({
     left: view.x + p.x * view.s,
     top: view.y + p.y * view.s,
   });
   const isEmpty = scene.strokes.length === 0;
-  const guides = symmetryGuides(template.symmetry);
+  const guides = showGuides ? symmetryGuides(template.symmetry) : [];
+  const lineOn = lineLocked || lineHeld;
 
   return (
     <div className="stage" ref={stageRef}>
@@ -508,8 +630,8 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
           style={{
             left: view.x,
             top: view.y,
-            width: DOC_WIDTH * view.s,
-            height: DOC_HEIGHT * view.s,
+            width: scene.width * view.s,
+            height: scene.height * view.s,
             background: scene.background,
           }}
         >
@@ -542,19 +664,19 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
         <svg
           className="stage__guides"
           aria-hidden="true"
-          viewBox={`0 0 ${DOC_WIDTH} ${DOC_HEIGHT}`}
+          viewBox={`0 0 ${scene.width} ${scene.height}`}
           preserveAspectRatio="none"
           style={{
             left: view.x,
             top: view.y,
-            width: DOC_WIDTH * view.s,
-            height: DOC_HEIGHT * view.s,
+            width: scene.width * view.s,
+            height: scene.height * view.s,
           }}
         >
           {guides.map((angle) => {
-            const r = DOC_WIDTH;
-            const cx = DOC_WIDTH / 2;
-            const cy = DOC_HEIGHT / 2;
+            const r = Math.max(scene.width, scene.height);
+            const cx = scene.width / 2;
+            const cy = scene.height / 2;
             const dx = Math.cos(angle) * r;
             const dy = Math.sin(angle) * r;
             return (
@@ -584,6 +706,61 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
           }}
         />
       )}
+
+      <div className="line-tool">
+        <button
+          type="button"
+          className={`line-tool__button ${lineOn ? "is-on" : ""}`}
+          aria-pressed={lineLocked}
+          aria-label={`Straight lines, ${LINE_MODE_INFO[lineMode].label}. Hold while drawing, or tap to keep on.`}
+          title="Hold while drawing, or tap to keep on (L). With a mouse, hold Shift."
+          onPointerDown={onLineDown}
+          onPointerUp={onLineUp}
+          onPointerCancel={onLineUp}
+          onClick={(e) => {
+            // Keyboard activation (pointer presses are handled above).
+            if (e.detail === 0) {
+              setLineLocked((v) => !v);
+            }
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <Icon name="line" />
+          <span className="line-tool__label">{lineOn ? "Line on" : "Line"}</span>
+        </button>
+        <button
+          type="button"
+          className="line-tool__mode"
+          aria-expanded={lineMenuOpen}
+          aria-controls="line-mode-menu"
+          aria-label={`Line angle: ${LINE_MODE_INFO[lineMode].label}`}
+          onClick={() => setLineMenuOpen((v) => !v)}
+        >
+          <span aria-hidden="true">{LINE_MODE_INFO[lineMode].symbol}</span>
+        </button>
+        {lineMenuOpen && (
+          <fieldset id="line-mode-menu" className="line-tool__menu">
+            <legend>Line angle</legend>
+            {LINE_MODES.map((mode) => (
+              <label key={mode} className="line-tool__option">
+                <input
+                  type="radio"
+                  name="line-mode"
+                  checked={lineMode === mode}
+                  onChange={() => {
+                    setLineMode(mode);
+                    setLineMenuOpen(false);
+                  }}
+                />
+                <span className="line-tool__symbol" aria-hidden="true">
+                  {LINE_MODE_INFO[mode].symbol}
+                </span>
+                <span>{LINE_MODE_INFO[mode].label}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+      </div>
 
       <div className="zoom" role="group" aria-label="Zoom and pan">
         <button
@@ -630,7 +807,7 @@ export function CanvasStage({ scene, template, onCommit, onAnnounce }: Props) {
       <p id="canvas-keyboard-help" className="visually-hidden">
         Arrow keys move the drawing cursor; hold Shift to move faster. Press Space to start a line
         and Space again to finish it. Escape cancels the line in progress. Plus and minus zoom, F
-        fits the drawing to the screen.
+        fits the drawing to the screen, L turns straight lines on and off.
       </p>
     </div>
   );
@@ -643,6 +820,6 @@ function targetFor(ctx: CanvasRenderingContext2D, v: View, dpr: number): RenderT
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
-function describe(p: { x: number; y: number }) {
-  return `${Math.round((p.x / DOC_WIDTH) * 100)}% across, ${Math.round((p.y / DOC_HEIGHT) * 100)}% down`;
+function describe(p: { x: number; y: number }, size: { width: number; height: number }) {
+  return `${Math.round((p.x / size.width) * 100)}% across, ${Math.round((p.y / size.height) * 100)}% down`;
 }

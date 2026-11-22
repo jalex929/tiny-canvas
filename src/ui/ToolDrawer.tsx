@@ -4,7 +4,7 @@ import { SYMMETRY_INFO } from "../engine/symmetry";
 import type { BrushId, SymmetryMode } from "../engine/types";
 import { Icon, type IconName } from "./Icon";
 
-export type DrawerTab = "brush" | "color" | "effects";
+export type DrawerTab = "brush" | "color" | "effects" | "canvas";
 
 interface Props {
   tab: DrawerTab | null;
@@ -12,6 +12,8 @@ interface Props {
   brush: BrushId;
   color: string;
   symmetry: SymmetryMode;
+  /** Label of the current canvas shape. */
+  shape: string;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -23,6 +25,7 @@ const TAB_TITLES: Record<DrawerTab, string> = {
   brush: "Brushes",
   color: "Color",
   effects: "Size and effects",
+  canvas: "Canvas and pen",
 };
 
 /**
@@ -30,7 +33,8 @@ const TAB_TITLES: Record<DrawerTab, string> = {
  * the canvas up rather than covering it, so you can keep drawing while it's open.
  */
 export function ToolDrawer(props: Props) {
-  const { tab, onTab, brush, color, symmetry, canUndo, canRedo, onUndo, onRedo, panels } = props;
+  const { tab, onTab, brush, color, symmetry, shape, canUndo, canRedo, onUndo, onRedo, panels } =
+    props;
   const sheetRef = useRef<HTMLDivElement>(null);
   const toggle = (next: DrawerTab) => onTab(tab === next ? null : next);
 
@@ -64,6 +68,7 @@ export function ToolDrawer(props: Props) {
       label: "Effects",
       detail: symmetry === "none" ? "Size" : SYMMETRY_INFO[symmetry].label,
     },
+    { id: "canvas", icon: "frame", label: "Canvas", detail: shape },
   ];
 
   return (

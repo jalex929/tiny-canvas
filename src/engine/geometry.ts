@@ -57,5 +57,8 @@ export function resample(points: readonly Point[], spacing: number): Point[] {
   return out;
 }
 
-/** Pressure 0.5 (mouse, keyboard) means 1×; a stylus ranges from 0.5× to 1.5×. */
-export const pressureScale = (p: number) => 0.5 + p;
+/**
+ * Width multiplier for a stored pressure. 1 (mouse, finger, keyboard, or a full press) is the
+ * full brush size; the lightest stylus touch is 15% of it.
+ */
+export const pressureScale = (p: number) => 0.15 + 0.85 * p;

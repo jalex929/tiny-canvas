@@ -4,11 +4,13 @@ import type { ImageFormat } from "./exportImage";
 
 interface Props {
   disabled: boolean;
+  /** Pixel size of the downloaded image. */
+  size: { width: number; height: number };
   onExport: (format: ImageFormat, transparent: boolean) => Promise<void>;
 }
 
 /** "Download" disclosure: pick PNG or JPG, optionally a transparent PNG. */
-export function ExportMenu({ disabled, onExport }: Props) {
+export function ExportMenu({ disabled, size, onExport }: Props) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<ImageFormat>("png");
   const [transparent, setTransparent] = useState(false);
@@ -101,7 +103,9 @@ export function ExportMenu({ disabled, onExport }: Props) {
           <button type="submit" className="button button--primary button--block" disabled={busy}>
             {busy ? "Preparing…" : `Download ${format === "jpeg" ? "JPG" : "PNG"}`}
           </button>
-          <p className="export__note">3200 × 2400 pixels</p>
+          <p className="export__note">
+            {size.width} × {size.height} pixels
+          </p>
         </form>
       )}
     </div>

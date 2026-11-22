@@ -34,17 +34,29 @@ export class BrowserDrawingStore implements DrawingStore {
     const tx = db.transaction([SUMMARIES, DOCUMENTS]);
     const [summary, doc] = await Promise.all([
       request<unknown>(tx.objectStore(SUMMARIES).get(id)),
-      request<{ actions?: unknown } | undefined>(tx.objectStore(DOCUMENTS).get(id)),
+      request<{ actions?: unknown; width?: unknown; height?: unknown } | undefined>(
+        tx.objectStore(DOCUMENTS).get(id),
+      ),
     ]);
     if (!summary) return null;
-    return parseDrawing({ ...(summary as object), actions: doc?.actions ?? [] });
+    return parseDrawing({
+      ...(summary as object),
+      width: doc?.width,
+      height: doc?.height,
+      actions: doc?.actions ?? [],
+    });
   }
 
   async save(drawing: Drawing): Promise<void> {
     const db = await this.open();
     const tx = db.transaction([SUMMARIES, DOCUMENTS], "readwrite");
     tx.objectStore(SUMMARIES).put(toSummary(drawing));
-    tx.objectStore(DOCUMENTS).put({ id: drawing.id, actions: drawing.actions });
+    tx.objectStore(DOCUMENTS).put({
+      id: drawing.id,
+      width: drawing.width,
+      height: drawing.height,
+      actions: drawing.actions,
+    });
     await done(tx);
   }
 
