@@ -1,13 +1,6 @@
 import type { Point } from "./types";
 
-export const SHAPE_KINDS = [
-  "rectangle",
-  "ellipse",
-  "triangle",
-  "star",
-  "heart",
-  "spirograph",
-] as const;
+export const SHAPE_KINDS = ["rectangle", "ellipse", "triangle", "star", "heart"] as const;
 export type ShapeKind = (typeof SHAPE_KINDS)[number];
 
 export const SHAPE_INFO: Record<ShapeKind, { label: string; canFill: boolean }> = {
@@ -16,22 +9,13 @@ export const SHAPE_INFO: Record<ShapeKind, { label: string; canFill: boolean }> 
   triangle: { label: "Triangle", canFill: true },
   star: { label: "Star", canFill: true },
   heart: { label: "Heart", canFill: true },
-  spirograph: { label: "Spirograph", canFill: false },
 };
-
-/** Spirograph: a wheel rolling inside a 96-tooth ring, like the toy. */
-export const SPIRO_RING = 96;
-export const SPIRO_WHEELS = [24, 30, 36, 40, 45, 52, 60, 63, 72] as const;
 
 export interface ShapeOptions {
   /** Keep proportions: square, circle, regular star (Shift on desktop). */
   square?: boolean;
   /** Drag from the center instead of a corner (Alt on desktop). */
   fromCenter?: boolean;
-  /** Spirograph wheel teeth (one of SPIRO_WHEELS). */
-  wheel?: number;
-  /** Spirograph pen hole: 0 = wheel center, 1 = wheel rim. */
-  hole?: number;
 }
 
 /** Spacing between generated points, in document px, so textured brushes look even. */
@@ -121,35 +105,7 @@ export function shapePoints(
         Math.max(40, Math.ceil(around / STEP)),
       );
     }
-    case "spirograph":
-      return spirograph(cx, cy, rx, ry, options.wheel ?? 52, options.hole ?? 0.75);
   }
-}
-
-/** How many loops a spirograph wheel draws: the curve closes after wheel/gcd turns. */
-export function spiroLoops(wheel: number): number {
-  return SPIRO_RING / gcd(SPIRO_RING, wheel);
-}
-
-/**
- * Hypotrochoid: a wheel with `wheel` teeth rolls inside the ring; the pen sits `hole`
- * of the way from the wheel's center to its rim. Scaled so the whole figure fits the box.
- */
-function spirograph(cx: number, cy: number, rx: number, ry: number, wheel: number, hole: number) {
-  const R = SPIRO_RING;
-  const r = Math.min(Math.max(wheel, 1), R - 1);
-  const d = r * Math.min(Math.max(hole, 0), 1);
-  const turns = r / gcd(R, r);
-  const extent = R - r + d;
-  const loops = spiroLoops(r);
-  const samples = Math.min(6000, Math.max(200, loops * 90, Math.ceil((turns * (rx + ry)) / 2)));
-  const total = Math.PI * 2 * turns;
-  return Array.from({ length: samples + 1 }, (_, i) => {
-    const t = (i / samples) * total;
-    const x = (R - r) * Math.cos(t) + d * Math.cos(((R - r) / r) * t);
-    const y = (R - r) * Math.sin(t) - d * Math.sin(((R - r) / r) * t);
-    return { x: cx + (x / extent) * rx, y: cy + (y / extent) * ry, p: 1 };
-  });
 }
 
 /** Evenly spaced points around a polygon (closed: back to the first corner). */
@@ -167,8 +123,4 @@ function polygon(corners: { x: number; y: number }[], closed: boolean): Point[] 
   const last = path[path.length - 1]!;
   out.push({ x: last.x, y: last.y, p: 1 });
   return out;
-}
-
-function gcd(a: number, b: number): number {
-  return b === 0 ? a : gcd(b, a % b);
 }

@@ -8,16 +8,19 @@ themselves in your browser, with no account needed.
 
 ## Features
 
-- **Tools:** Brush, Shape and Fill (B / U / G).
+- **Tools:** Brush, Shape, Fill and Spirograph (B / U / G / S).
 - **Brushes (grouped, in pairs):** _Draw_: Pen, Pencil (darker with pressure), Marker
   (multiplies where it overlaps), Calligraphy. _Paint & glow_: Spray, Neon. _Playful_:
   Sparkle, Hearts, Pattern (zigzag, waves, dots, candy stripes), Rainbow. _Clean up_: Eraser.
   (Threads was retired from the picker; drawings that use it still render.)
 - **Shapes:** rectangle, ellipse, triangle, star, heart, as outlines in your current brush or
   solid fills. Drag to draw; Shift keeps proportions, Alt draws from the center.
-- **Spirograph:** a wheel rolling inside a 96-tooth ring, like the toy. Pick the wheel (24–72
-  teeth; the loop count follows the gear ratio) and the pen hole, then drag out its size.
-- **Fill:** tap an area to fill it (Exact / Normal / Loose tolerance). The area is stored as a
+- **Spirograph (works like the toy):** drag to place the ring (or tap for a medium one); the
+  ring and wheel appear on the canvas. Drag around the ring to turn the wheel: the pen draws
+  exactly as far as you turn, in either direction, with your current brush. Stop, change
+  color or brush, and keep turning; each turn is one undo step. Swap wheels (24–72 teeth; the
+  loop count follows the gear ratio) and pen holes; "Draw full pattern" finishes it in one go.
+- **Fill:** tap an area to fill it. The area is stored as a
   run-encoded mask at document resolution, so it stays sharp at any zoom, undoes in one step
   and saves with the drawing; it grows one pixel under line edges so no halo shows.
 - **Brush options:** nib angle (Calligraphy), density (Spray), glow (Neon), spacing and
@@ -49,8 +52,10 @@ themselves in your browser, with no account needed.
 - **Phone layout (≤900px wide):** full-screen canvas with a bottom drawer (Brush, Color,
   Effects) and Undo/Redo within thumb reach. The drawer pushes the canvas up rather than
   covering it.
-- **Desktop settings panel:** size and opacity pinned on top, then Color / Symmetry / Paper /
-  Pen tabs that each fit on a 1366 × 768 screen without scrolling (measured).
+- **Desktop layout without scrolling:** size, opacity and symmetry are always visible on the
+  right, above Color / Paper / Pen tabs; brush options fold into a one-line summary; Shape
+  and Spirograph show the brushes as a compact strip; shortcuts live behind the "?" button.
+  Measured: 0 px of overflow in every tool and tab at 1366 × 768.
 - **Quick controls:** size/opacity always visible (top of the desktop panel; a bar above the
   phone tabs). Two-finger tap undoes, three-finger tap redoes. Eyedropper: "Pick from drawing"
   or Alt+click. Less-used settings are collapsible on desktop. See

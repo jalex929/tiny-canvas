@@ -12,6 +12,16 @@ import {
   type RenderTarget,
 } from "../engine/render";
 import { SHAPE_INFO, shapePoints, type ShapeKind } from "../engine/shapes";
+import {
+  angleDelta,
+  penAt,
+  spiroArc,
+  wheelCenter,
+  wheelRadius,
+  wheelSpin,
+  type SpiroGear,
+  type SpiroRing,
+} from "../engine/spiro";
 import { symmetryGuideLines } from "../engine/symmetry";
 import type { Point, Stroke } from "../engine/types";
 import {
@@ -35,8 +45,6 @@ export type StrokeTemplate = Omit<Stroke, "id" | "seed" | "points">;
 export interface ShapeSettings {
   kind: ShapeKind;
   filled: boolean;
-  wheel: number;
-  hole: number;
 }
 
 interface Props {
@@ -47,7 +55,10 @@ interface Props {
   /** Steadies freehand lines (lazy brush). */
   smoothing: SmoothingLevel;
   /** What a press on the canvas does. */
-  tool: "brush" | "shape" | "fill";
+  tool: "brush" | "shape" | "fill" | "spiro";
+  /** Spirograph: the placed ring (null until placed) and the wheel in use. */
+  spiro: { ring: SpiroRing | null; gear: SpiroGear };
+  onSpiroRing: (ring: SpiroRing | null) => void;
   shape: ShapeSettings;
   /** Fill tool: fill the area at this document point. */
   onFill: (point: { x: number; y: number }) => void;
@@ -112,6 +123,9 @@ interface LiveStroke {
   shapeStart?: Point;
 }
 
+/** Spirograph pen drawing: ignore the pointer this close to the ring's center (angle jitters). */
+const SPIRO_DEAD_ZONE = 0.12;
+
 const KEY_STEP = 10;
 const KEY_STEP_FAST = 50;
 /** Ignore pointer samples closer than this (document px); keeps strokes light. */
@@ -140,6 +154,8 @@ export function CanvasStage({
   smoothing,
   tool,
   shape,
+  spiro,
+  onSpiroRing,
   onFill,
   showSizePreview,
   compact,
@@ -197,6 +213,18 @@ export function CanvasStage({
   const lineButtonDown = useRef<{ at: number; usedForLine: boolean } | null>(null);
   const lineRef = useRef({ active: false });
   lineRef.current = { active: lineLocked || lineHeld };
+
+  // Spirograph: how far the wheel has rolled, a ring being placed, and an active turn.
+  const spiroAngleRef = useRef(0);
+  const [spiroAngle, setSpiroAngle] = useState(0);
+  const [placingRing, setPlacingRing] = useState<SpiroRing | null>(null);
+  const placingRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const spiroTurnRef = useRef<{ pointerId: number; last: number } | null>(null);
+  useEffect(() => {
+    // A new ring starts with the wheel back at the top.
+    spiroAngleRef.current = -Math.PI / 2;
+    setSpiroAngle(-Math.PI / 2);
+  }, [spiro.ring]);
 
   const templateRef = useRef(template);
   templateRef.current = template;
@@ -609,6 +637,21 @@ export function CanvasStage({
       return;
     }
     capture(event);
+    if (tool === "spiro") {
+      const p = toDoc(event);
+      if (!spiro.ring) {
+        placingRef.current = { pointerId: event.pointerId, x: p.x, y: p.y };
+        setPlacingRing({ x: p.x, y: p.y, r: 0 });
+        return;
+      }
+      const ring = spiro.ring;
+      spiroTurnRef.current = {
+        pointerId: event.pointerId,
+        last: Math.atan2(p.y - ring.y, p.x - ring.x),
+      };
+      begin(penAt(ring, spiro.gear, spiroAngleRef.current), event.pointerId);
+      return;
+    }
     if (tool === "shape") {
       const start = { ...toDoc(event), p: 1 };
       // Filled shapes are solid color; outlines use the current brush.
@@ -662,14 +705,39 @@ export function CanvasStage({
       return;
     }
 
+    const placing = placingRef.current;
+    if (placing && placing.pointerId === event.pointerId) {
+      const p = toDoc(event);
+      setPlacingRing({
+        x: placing.x,
+        y: placing.y,
+        r: Math.hypot(p.x - placing.x, p.y - placing.y),
+      });
+      return;
+    }
+
     const live = liveRef.current;
     if (!live || live.pointerId !== event.pointerId) return;
+    const turn = spiroTurnRef.current;
+    if (turn && turn.pointerId === event.pointerId && spiro.ring) {
+      // Turning the wheel: the pointer's angle around the ring's center drives it.
+      const ring = spiro.ring;
+      const p = toDoc(event);
+      if (Math.hypot(p.x - ring.x, p.y - ring.y) < ring.r * SPIRO_DEAD_ZONE) return;
+      const angle = Math.atan2(p.y - ring.y, p.x - ring.x);
+      const from = spiroAngleRef.current;
+      const to = from + angleDelta(turn.last, angle);
+      turn.last = angle;
+      live.stroke.points.push(...spiroArc(ring, spiro.gear, from, to).slice(1));
+      spiroAngleRef.current = to;
+      setSpiroAngle(to);
+      requestFrame();
+      return;
+    }
     if (live.shapeStart) {
       const points = shapePoints(shape.kind, live.shapeStart, toDoc(event), {
         square: event.shiftKey,
         fromCenter: event.altKey,
-        wheel: shape.wheel,
-        hole: shape.hole,
       });
       live.stroke.points = points.length ? points : [live.shapeStart];
       live.reset = true;
@@ -718,7 +786,26 @@ export function CanvasStage({
       gestureRef.current = null;
       setPanning(false);
     }
+    const placing = placingRef.current;
+    if (placing && placing.pointerId === event.pointerId) {
+      placingRef.current = null;
+      setPlacingRing(null);
+      const p = toDoc(event);
+      const dragged = Math.hypot(p.x - placing.x, p.y - placing.y);
+      // A tap places a medium ring; a drag sets its size.
+      const r =
+        dragged * viewRef.current.s < 24
+          ? Math.min(scene.width, scene.height) * 0.32
+          : Math.max(40, dragged);
+      onSpiroRing({ x: placing.x, y: placing.y, r });
+      return;
+    }
     const live = liveRef.current;
+    if (spiroTurnRef.current?.pointerId === event.pointerId) {
+      spiroTurnRef.current = null;
+      finish(!!live && live.stroke.points.length > 1);
+      return;
+    }
     if (live?.pointerId === event.pointerId && live.shapeStart) {
       // A tap without a drag makes no shape.
       finish(live.stroke.points.length >= 3);
@@ -882,13 +969,29 @@ export function CanvasStage({
           ))}
         </svg>
       )}
-      {hover && !keyboardActive && !handMode && !panning && !eyedropper && tool !== "fill" && (
-        <span
-          className="stage__ring"
-          aria-hidden="true"
-          style={{ left: hover.x, top: hover.y, width: ringSize, height: ringSize }}
+      {tool === "spiro" && ready && (
+        <SpiroOverlay
+          ring={placingRing ?? spiro.ring}
+          gear={spiro.gear}
+          angle={spiroAngle}
+          placing={!!placingRing}
+          toStage={toStage}
+          scale={view.s}
         />
       )}
+      {hover &&
+        !keyboardActive &&
+        !handMode &&
+        !panning &&
+        !eyedropper &&
+        tool !== "fill" &&
+        tool !== "spiro" && (
+          <span
+            className="stage__ring"
+            aria-hidden="true"
+            style={{ left: hover.x, top: hover.y, width: ringSize, height: ringSize }}
+          />
+        )}
       {showSizePreview && ready && (
         <span
           className="stage__size-preview"
@@ -1052,6 +1155,53 @@ function updateLiveLayers(
   work.clearRect(0, 0, work.canvas.width, work.canvas.height);
   work.drawImage(stable.canvas, 0, 0);
   paintStrokeRange(targetFor(work, v, dpr), live.stroke, frame, live.painted, Infinity);
+}
+
+/**
+ * The ring and wheel drawn over the canvas (never exported), so the spirograph works like
+ * the toy: you can see the wheel roll and where the pen is.
+ */
+function SpiroOverlay({
+  ring,
+  gear,
+  angle,
+  placing,
+  toStage,
+  scale,
+}: {
+  ring: SpiroRing | null;
+  gear: SpiroGear;
+  angle: number;
+  placing: boolean;
+  toStage: (p: { x: number; y: number }) => { left: number; top: number };
+  scale: number;
+}) {
+  if (!ring || ring.r <= 0) return null;
+  const at = (p: { x: number; y: number }) => {
+    const s = toStage(p);
+    return { x: s.left, y: s.top };
+  };
+  const center = at(ring);
+  const wheelR = wheelRadius(ring, gear) * scale;
+  const wc = at(wheelCenter(ring, gear, angle));
+  const pen = at(penAt(ring, gear, angle));
+  const spin = wheelSpin(ring, gear, angle);
+  const tick = { x: wc.x - Math.cos(spin) * wheelR, y: wc.y - Math.sin(spin) * wheelR };
+  return (
+    <svg className="spiro-overlay" aria-hidden="true">
+      <circle className="spiro-overlay__under" cx={center.x} cy={center.y} r={ring.r * scale} />
+      <circle className="spiro-overlay__ring" cx={center.x} cy={center.y} r={ring.r * scale} />
+      <circle className="spiro-overlay__center" cx={center.x} cy={center.y} r={3} />
+      {!placing && (
+        <g>
+          <circle className="spiro-overlay__wheel" cx={wc.x} cy={wc.y} r={wheelR} />
+          <line className="spiro-overlay__spoke" x1={wc.x} y1={wc.y} x2={tick.x} y2={tick.y} />
+          <line className="spiro-overlay__arm" x1={wc.x} y1={wc.y} x2={pen.x} y2={pen.y} />
+          <circle className="spiro-overlay__pen" cx={pen.x} cy={pen.y} r={5} />
+        </g>
+      )}
+    </svg>
+  );
 }
 
 /** Device-pixel render target for a view. */

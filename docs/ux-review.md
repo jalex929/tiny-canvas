@@ -55,3 +55,12 @@ screenshots.
 | 5   | Background choice was limited.                  | 12 presets plus any color; picker drags collapse into one undo step.                                                                                              |
 | 6   | Right panel needed long scrolling on laptops.   | Size/opacity pinned; Color / Symmetry / Paper / Pen tabs. Measured 0 px of overflow in every tab at 1366 × 768. Shortcuts moved to the bottom of the tools panel. |
 | 7   | Brush groups were uneven.                       | Threads retired from the picker; Rainbow moved to Playful, so groups come in pairs.                                                                               |
+
+## Pass 4 (2026-11-22): compact panels and a real spirograph
+
+| #   | Request / finding                                                                 | Change                                                                                                                                                                           |
+| --- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Brush tiles too tall; options and shape settings pushed the panel into scrolling. | Flatter tiles, brush options collapse to a one-line summary, one-row shape picker, compact brush strip for Shape/Spirograph. Measured 0 px overflow at 1366 × 768 in every tool. |
+| 2   | Symmetry is a favorite; it shouldn't hide in a tab.                               | Pinned under size/opacity on desktop: one row of tiles, mode named in the heading, guides toggle beside it. Tabs are now Color / Paper / Pen.                                    |
+| 3   | Fill tolerance levels weren't needed.                                             | One default (former "Normal").                                                                                                                                                   |
+| 4   | Spirograph should work like the real toy.                                         | Its own tool: place a ring, see the wheel, turn it by dragging; the pen draws as far as you turn. Wheels and pen holes swap like the toy; "Draw full pattern" for the impatient. |

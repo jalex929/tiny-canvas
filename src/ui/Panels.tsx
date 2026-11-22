@@ -3,15 +3,8 @@ import { BRUSHES } from "../engine/brushes";
 import { normalizeHex } from "../engine/color";
 import { PRESSURE_CURVES, PRESSURE_INFO, type PressureCurve } from "../engine/pressure";
 import { SMOOTHING_INFO, SMOOTHING_LEVELS, type SmoothingLevel } from "../engine/stabilizer";
-import { FILL_TOLERANCES, FILL_TOLERANCE_INFO, type FillTolerance } from "../engine/fill";
-import {
-  SHAPE_INFO,
-  SHAPE_KINDS,
-  SPIRO_WHEELS,
-  shapePoints,
-  spiroLoops,
-  type ShapeKind,
-} from "../engine/shapes";
+import { SHAPE_INFO, SHAPE_KINDS, shapePoints, type ShapeKind } from "../engine/shapes";
+import { SPIRO_WHEELS, spiroLoops } from "../engine/spiro";
 import {
   MAX_SYMMETRY_COUNT,
   MIN_SYMMETRY_COUNT,
@@ -47,16 +40,23 @@ export function BrushPicker({
   color,
   options,
   onChange,
+  compact = false,
 }: {
+  /** Shape and Spirograph tools: a small strip of brush previews, no labels or groups. */
+  compact?: boolean;
   brush: BrushId;
   color: string;
   options: Record<BrushId, Record<string, number>>;
   onChange: (id: BrushId) => void;
 }) {
   return (
-    <section aria-labelledby="brushes-heading">
+    <section
+      aria-labelledby="brushes-heading"
+      className={compact ? "brush-picker brush-picker--compact" : "brush-picker"}
+    >
       <h2 id="brushes-heading" className="panel__heading">
-        Brushes
+        {compact ? "Line brush" : "Brushes"}
+        {compact && <span className="panel__heading-value">{BRUSHES[brush].label}</span>}
       </h2>
       <div className="brush-groups" role="radiogroup" aria-labelledby="brushes-heading">
         {BRUSH_GROUPS.map((group) => (
@@ -101,22 +101,37 @@ export function BrushPicker({
 }
 
 /** Sliders (or choices) for the selected brush's own settings. */
+const OPTIONS_OPEN_KEY = "tiny-canvas:brush-options-open";
+
 export function BrushOptionsPanel({
   brush,
   values,
   onChange,
+  collapsible = false,
 }: {
   brush: BrushId;
   values: Record<string, number>;
   onChange: (key: string, value: number) => void;
+  /** Desktop: a one-line summary you open when you want it, to save space. */
+  collapsible?: boolean;
 }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(OPTIONS_OPEN_KEY) === "open";
+    } catch {
+      return false;
+    }
+  });
   const specs = BRUSHES[brush].options;
   if (specs.length === 0) return null;
-  return (
-    <section className="control brush-options" aria-labelledby="brush-options-heading">
-      <h2 className="panel__heading" id="brush-options-heading">
-        {BRUSHES[brush].label} options
-      </h2>
+  const summary = specs
+    .map((spec) => {
+      const value = values[spec.key] ?? spec.default;
+      return `${spec.label} ${spec.format(value)}`;
+    })
+    .join(" · ");
+  const body = (
+    <>
       {specs.map((spec) => {
         const value = values[spec.key] ?? spec.default;
         if (spec.choices) {
@@ -162,16 +177,53 @@ export function BrushOptionsPanel({
       >
         Reset to default
       </button>
+    </>
+  );
+  if (collapsible) {
+    return (
+      <details
+        className="control brush-options brush-options--collapsible"
+        open={open}
+        onToggle={(e) => {
+          const next = (e.currentTarget as HTMLDetailsElement).open;
+          setOpen(next);
+          try {
+            localStorage.setItem(OPTIONS_OPEN_KEY, next ? "open" : "closed");
+          } catch {
+            /* per-viewer convenience only */
+          }
+        }}
+      >
+        <summary className="brush-options__summary">
+          <span className="brush-options__title">{BRUSHES[brush].label} options</span>
+          <span className="brush-options__values">{summary}</span>
+        </summary>
+        <div className="brush-options__body">{body}</div>
+      </details>
+    );
+  }
+  return (
+    <section className="control brush-options" aria-labelledby="brush-options-heading">
+      <h2 className="panel__heading" id="brush-options-heading">
+        {BRUSHES[brush].label} options
+      </h2>
+      {body}
     </section>
   );
 }
 
-export type Tool = "brush" | "shape" | "fill";
+export type Tool = "brush" | "shape" | "fill" | "spiro";
 
-const TOOLS: { id: Tool; label: string; icon: "brush" | "shapes" | "bucket"; key: string }[] = [
+const TOOLS: {
+  id: Tool;
+  label: string;
+  icon: "brush" | "shapes" | "bucket" | "spiro";
+  key: string;
+}[] = [
   { id: "brush", label: "Brush", icon: "brush", key: "B" },
   { id: "shape", label: "Shape", icon: "shapes", key: "U" },
   { id: "fill", label: "Fill", icon: "bucket", key: "G" },
+  { id: "spiro", label: "Spiro", icon: "spiro", key: "S" },
 ];
 
 /** Brush / Shape / Fill. */
@@ -202,17 +254,11 @@ export function ToolPicker({ tool, onTool }: { tool: Tool; onTool: (tool: Tool) 
 
 /** A shape's outline drawn by the same code that draws it on the canvas. */
 function ShapeIcon({ kind }: { kind: ShapeKind }) {
-  const points = shapePoints(kind, { x: 3, y: 3 }, { x: 29, y: 29 }, { wheel: 52, hole: 0.75 });
+  const points = shapePoints(kind, { x: 3, y: 3 }, { x: 29, y: 29 });
   const d = points.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("");
   return (
     <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" className="shape-icon">
-      <path
-        d={d}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={kind === "spirograph" ? 0.6 : 2}
-        strokeLinejoin="round"
-      />
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" />
     </svg>
   );
 }
@@ -222,28 +268,21 @@ export function ShapePanel({
   onKind,
   filled,
   onFilled,
-  wheel,
-  onWheel,
-  hole,
-  onHole,
   compact,
 }: {
   kind: ShapeKind;
   onKind: (kind: ShapeKind) => void;
   filled: boolean;
   onFilled: (filled: boolean) => void;
-  wheel: number;
-  onWheel: (teeth: number) => void;
-  hole: number;
-  onHole: (value: number) => void;
   /** Phones: no keyboard hints. */
   compact: boolean;
 }) {
-  const canFill = SHAPE_INFO[kind].canFill;
   return (
     <div className="control shape-panel">
       <fieldset className="choice-row">
-        <legend className="panel__heading">Shape</legend>
+        <legend className="panel__heading">
+          Shape <span className="panel__heading-value">{SHAPE_INFO[kind].label}</span>
+        </legend>
         <div className="shape-kinds">
           {SHAPE_KINDS.map((k) => (
             <label key={k} className="shape-kind" title={SHAPE_INFO[k].label}>
@@ -256,110 +295,123 @@ export function ShapePanel({
               />
               <span>
                 <ShapeIcon kind={k} />
-                <small>{SHAPE_INFO[k].label}</small>
               </span>
             </label>
           ))}
         </div>
       </fieldset>
 
-      {canFill ? (
-        <fieldset className="choice-row">
-          <legend>Style</legend>
-          <div className="chips">
-            {(
-              [
-                [false, "Outline (uses your brush)"],
-                [true, "Filled"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={label} className="chip">
-                <input
-                  type="radio"
-                  name="shape-style"
-                  checked={filled === value}
-                  onChange={() => onFilled(value)}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      ) : (
-        <>
-          <fieldset className="choice-row">
-            <legend>
-              Wheel <span className="choice-row__note">{spiroLoops(wheel)} loops</span>
-            </legend>
-            <div className="chips chips--tight">
-              {SPIRO_WHEELS.map((teeth) => (
-                <label key={teeth} className="chip">
-                  <input
-                    type="radio"
-                    name="spiro-wheel"
-                    checked={wheel === teeth}
-                    onChange={() => onWheel(teeth)}
-                    aria-label={`${teeth}-tooth wheel, ${spiroLoops(teeth)} loops`}
-                  />
-                  <span>{teeth}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <label className="slider">
-            <span className="slider__label">
-              Pen hole <span className="slider__value">{Math.round(hole * 100)}%</span>
-            </span>
+      <fieldset className="segmented-row">
+        <legend className="visually-hidden">Style</legend>
+        {(
+          [
+            [false, "Outline", "Uses your brush"],
+            [true, "Filled", "Solid color"],
+          ] as const
+        ).map(([value, label, hint]) => (
+          <label key={label} className="segmented-row__option" title={hint}>
             <input
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={hole}
-              onChange={(e) => onHole(Number(e.target.value))}
+              type="radio"
+              name="shape-style"
+              checked={filled === value}
+              onChange={() => onFilled(value)}
+              aria-label={`${label}: ${hint}`}
             />
+            <span>{label}</span>
           </label>
-        </>
-      )}
-      <p className="control__note">
-        {compact
-          ? "Drag on the canvas to draw the shape."
-          : "Drag on the canvas. Shift keeps proportions; Alt draws from the center."}
-      </p>
+        ))}
+      </fieldset>
+      {compact && <p className="control__note">Drag on the canvas.</p>}
     </div>
   );
 }
 
-export function FillPanel({
-  tolerance,
-  onTolerance,
+/** Spirograph tool: pick the wheel and pen hole; place a ring, then turn the wheel. */
+export function SpiroPanel({
+  wheel,
+  onWheel,
+  hole,
+  onHole,
+  hasRing,
+  onDrawFull,
+  onNewRing,
 }: {
-  tolerance: FillTolerance;
-  onTolerance: (value: FillTolerance) => void;
+  wheel: number;
+  onWheel: (teeth: number) => void;
+  hole: number;
+  onHole: (value: number) => void;
+  hasRing: boolean;
+  onDrawFull: () => void;
+  onNewRing: () => void;
 }) {
+  const wheelIndex = Math.max(0, SPIRO_WHEELS.indexOf(wheel as (typeof SPIRO_WHEELS)[number]));
   return (
-    <fieldset className="control">
-      <legend className="panel__heading">Fill</legend>
+    <div className="control spiro-panel">
+      <h2 className="panel__heading">
+        Spirograph <span className="panel__heading-value">{spiroLoops(wheel)} loops</span>
+      </h2>
+      <p className="control__note control__note--top">
+        {hasRing
+          ? "Drag around the ring to turn the wheel. Stop, switch colors, keep turning."
+          : "Drag on the canvas to place the ring (or tap for a medium one)."}
+      </p>
+      <label className="slider">
+        <span className="slider__label">
+          Wheel <span className="slider__value">{wheel} teeth</span>
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={SPIRO_WHEELS.length - 1}
+          step={1}
+          value={wheelIndex}
+          onChange={(e) => onWheel(SPIRO_WHEELS[Number(e.target.value)]!)}
+          aria-valuetext={`${wheel}-tooth wheel, ${spiroLoops(wheel)} loops`}
+        />
+      </label>
+      <label className="slider">
+        <span className="slider__label">
+          Pen hole <span className="slider__value">{Math.round(hole * 100)}%</span>
+        </span>
+        <input
+          type="range"
+          min={0.1}
+          max={1}
+          step={0.05}
+          value={hole}
+          onChange={(e) => onHole(Number(e.target.value))}
+        />
+      </label>
+      <div className="spiro-panel__actions">
+        <button
+          type="button"
+          className="button button--small"
+          onClick={onDrawFull}
+          disabled={!hasRing}
+        >
+          Draw full pattern
+        </button>
+        <button
+          type="button"
+          className="button button--small button--quiet"
+          onClick={onNewRing}
+          disabled={!hasRing}
+        >
+          New ring
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function FillPanel() {
+  return (
+    <div className="control">
+      <h2 className="panel__heading">Fill</h2>
       <p className="control__note control__note--top">
         Tap an area to fill it with your color. Fills stay inside your lines.
       </p>
-      <div className="chips">
-        {FILL_TOLERANCES.map((t) => (
-          <label key={t} className="chip">
-            <input
-              type="radio"
-              name="fill-tolerance"
-              checked={tolerance === t}
-              onChange={() => onTolerance(t)}
-            />
-            <span>{FILL_TOLERANCE_INFO[t].label}</span>
-          </label>
-        ))}
-      </div>
-      <p className="control__note">
-        Exact fills only the same color. Loose also fills soft edges and similar colors.
-      </p>
-    </fieldset>
+    </div>
   );
 }
 
@@ -396,12 +448,10 @@ export function CanvasPanel({
         <>
           <fieldset className="control">
             <legend className="panel__heading">Smoothing</legend>
-            <p className="control__note control__note--top">
-              Steadies shaky lines. Stronger feels calmer but trails your finger a little.
-            </p>
-            <div className="chips">
+            <p className="control__note control__note--top">Steadies shaky lines.</p>
+            <div className="segmented-row segmented-row--4">
               {SMOOTHING_LEVELS.map((level) => (
-                <label key={level} className="chip">
+                <label key={level} className="segmented-row__option">
                   <input
                     type="radio"
                     name="smoothing"
@@ -463,12 +513,16 @@ export function CanvasPanel({
             <legend className="panel__heading">Pen pressure</legend>
             <p className="control__note control__note--top">
               {penDetected
-                ? "✓ Stylus detected. Light pressure draws thin, firm pressure draws full size."
-                : "For styluses like Apple Pencil, Surface Pen and Wacom. Mouse and finger always draw full size."}
+                ? "✓ Stylus detected: light pressure draws thin."
+                : "For Apple Pencil, Surface Pen, Wacom and other styluses."}
             </p>
-            <div className="chips">
+            <div className="segmented-row segmented-row--4">
               {PRESSURE_CURVES.map((curve) => (
-                <label key={curve} className="chip" title={PRESSURE_INFO[curve].hint}>
+                <label
+                  key={curve}
+                  className="segmented-row__option"
+                  title={PRESSURE_INFO[curve].hint}
+                >
                   <input
                     type="radio"
                     name="pressure-curve"
@@ -674,7 +728,10 @@ export function SymmetryPanel({
   showGuides,
   onShowGuides,
   hideHeading = false,
+  compact = false,
 }: {
+  /** Always-visible desktop version: one row of small tiles, mode named in the heading. */
+  compact?: boolean;
   symmetry: SymmetryMode;
   onSymmetry: (mode: SymmetryMode) => void;
   count: number;
@@ -683,9 +740,22 @@ export function SymmetryPanel({
   onShowGuides: (value: boolean) => void;
   hideHeading?: boolean;
 }) {
-  return (
-    <fieldset className="control symmetry">
-      <legend className={hideHeading ? "visually-hidden" : "panel__heading"}>Symmetry</legend>
+  const guidesToggle = (
+    <label className="check check--spaced">
+      <input
+        type="checkbox"
+        checked={showGuides}
+        disabled={symmetry === "none"}
+        onChange={(e) => onShowGuides(e.target.checked)}
+      />
+      <span>
+        Show guides
+        {!compact && <small> Dashed lines on the canvas. They never appear in downloads.</small>}
+      </span>
+    </label>
+  );
+  const tiles = (
+    <>
       <div className="symmetry-grid">
         {SYMMETRY_MODES.map((mode) => (
           <label key={mode} className="symmetry-tile" title={SYMMETRY_INFO[mode].description}>
@@ -700,7 +770,7 @@ export function SymmetryPanel({
             />
             <span className="symmetry-tile__body">
               <SymmetryPreview mode={mode} ink="#000052" count={count} />
-              <span className="symmetry-tile__label">
+              <span className={compact ? "visually-hidden" : "symmetry-tile__label"}>
                 {SYMMETRY_INFO[mode].short ?? SYMMETRY_INFO[mode].label}
               </span>
             </span>
@@ -724,18 +794,35 @@ export function SymmetryPanel({
           />
         </label>
       )}
-      <label className="check check--spaced">
-        <input
-          type="checkbox"
-          checked={showGuides}
-          disabled={symmetry === "none"}
-          onChange={(e) => onShowGuides(e.target.checked)}
-        />
-        <span>
-          Show guides
-          <small> Dashed lines on the canvas. They never appear in downloads.</small>
-        </span>
-      </label>
+    </>
+  );
+
+  if (compact) {
+    // Always-visible desktop version: heading row with the guides toggle, tiles beneath.
+    return (
+      <div
+        className="control symmetry symmetry--compact"
+        role="group"
+        aria-labelledby="symmetry-heading"
+      >
+        <div className="symmetry__header">
+          <h2 className="panel__heading" id="symmetry-heading">
+            Symmetry
+            <span className="panel__heading-value">
+              {symmetry === "none" ? "Off" : symmetryLabel(symmetry, count)}
+            </span>
+          </h2>
+          {guidesToggle}
+        </div>
+        {tiles}
+      </div>
+    );
+  }
+  return (
+    <fieldset className="control symmetry">
+      <legend className={hideHeading ? "visually-hidden" : "panel__heading"}>Symmetry</legend>
+      {tiles}
+      {guidesToggle}
     </fieldset>
   );
 }
@@ -873,10 +960,12 @@ export function Section({
   );
 }
 
-export function ShortcutsHelp() {
+export function ShortcutsHelp({ popover = false }: { popover?: boolean }) {
   return (
-    <details className="control shortcuts">
-      <summary>Keyboard shortcuts</summary>
+    <details className={popover ? "shortcuts shortcuts--popover" : "control shortcuts"}>
+      <summary aria-label={popover ? "Keyboard shortcuts" : undefined} title="Keyboard shortcuts">
+        {popover ? <Icon name="help" /> : "Keyboard shortcuts"}
+      </summary>
       <dl>
         <dt>1–9, 0</dt>
         <dd>Choose a brush (Pen to Rainbow)</dd>
@@ -890,6 +979,10 @@ export function ShortcutsHelp() {
         <dd>Fit the drawing to the screen</dd>
         <dt>Alt + click</dt>
         <dd>Pick a color from the drawing</dd>
+        <dt>B / U / G / S</dt>
+        <dd>Brush, Shape, Fill, Spirograph</dd>
+        <dt>Shape + Shift / Alt</dt>
+        <dd>Keep proportions / draw from the center</dd>
         <dt>Shift + drag</dt>
         <dd>Straight line (snaps near flat, upright and 45°)</dd>
         <dt>L</dt>

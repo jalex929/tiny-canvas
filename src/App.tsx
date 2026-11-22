@@ -4,9 +4,9 @@ import { normalizeHex } from "./engine/color";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
 import type { PressureCurve } from "./engine/pressure";
 import type { SmoothingLevel } from "./engine/stabilizer";
-import { FILL_TOLERANCE_INFO, type FillTolerance } from "./engine/fill";
+import { FILL_TOLERANCE_INFO } from "./engine/fill";
 import { SHAPE_INFO, type ShapeKind } from "./engine/shapes";
-import { symmetryLabel } from "./engine/symmetry";
+import { fullPattern, type SpiroRing } from "./engine/spiro";
 import { computeFill } from "./ui/fillTool";
 import {
   BRUSH_IDS,
@@ -40,6 +40,7 @@ import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
   FillPanel,
   ShapePanel,
+  SpiroPanel,
   ToolPicker,
   type Tool,
   BackgroundPanel,
@@ -156,7 +157,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [shapeFilled, setShapeFilled] = useState(false);
   const [spiroWheel, setSpiroWheel] = useState(52);
   const [spiroHole, setSpiroHole] = useState(0.75);
-  const [fillTolerance, setFillTolerance] = useState<FillTolerance>("normal");
+  const [spiroRing, setSpiroRing] = useState<SpiroRing | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(store ? "idle" : "unavailable");
   const [shelfOpen, setShelfOpen] = useState(false);
   const [shelf, setShelf] = useState<DrawingSummary[] | "loading" | "error">("loading");
@@ -424,19 +425,31 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     setBrushOptions((all) => ({ ...all, [brush]: { ...all[brush], [key]: value } }));
 
   const shapeSettings = useMemo(
-    () => ({ kind: shapeKind, filled: shapeFilled, wheel: spiroWheel, hole: spiroHole }),
-    [shapeKind, shapeFilled, spiroWheel, spiroHole],
+    () => ({ kind: shapeKind, filled: shapeFilled }),
+    [shapeKind, shapeFilled],
   );
+  const spiro = useMemo(
+    () => ({ ring: spiroRing, gear: { wheel: spiroWheel, hole: spiroHole } }),
+    [spiroRing, spiroWheel, spiroHole],
+  );
+
+  /** Spirograph shortcut: draw the whole pattern in one undoable stroke. */
+  const drawFullSpiro = () => {
+    if (!spiroRing) return;
+    apply({
+      type: "stroke",
+      stroke: compactStroke({
+        ...template,
+        id: `spiro-${Date.now().toString(36)}`,
+        seed: Math.floor(Math.random() * 2 ** 31),
+        points: fullPattern(spiroRing, spiro.gear, -Math.PI / 2),
+      }),
+    });
+  };
 
   /** Fill tool: work out the area and add it as one undoable step. */
   const onFill = (point: { x: number; y: number }) => {
-    const result = computeFill(
-      scene,
-      point.x,
-      point.y,
-      color,
-      FILL_TOLERANCE_INFO[fillTolerance].value,
-    );
+    const result = computeFill(scene, point.x, point.y, color, FILL_TOLERANCE_INFO.normal.value);
     if (result.kind === "same-color") {
       setMessage({ text: "That area is already this color." });
       return;
@@ -516,6 +529,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         } else if (key === "b") setTool("brush");
         else if (key === "u") setTool("shape");
         else if (key === "g") setTool("fill");
+        else if (key === "s") setTool("spiro");
         else if (/^[0-9]$/.test(key) && target.getAttribute("type") !== "range") {
           const index = key === "0" ? 9 : Number(key) - 1;
           const id = BRUSH_IDS[index];
@@ -543,22 +557,33 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   // Filled shapes and the fill tool are solid color, so the brush list steps aside.
   const usesBrush =
-    tool === "brush" || (tool === "shape" && !(shapeFilled && SHAPE_INFO[shapeKind].canFill));
+    tool === "brush" ||
+    tool === "spiro" ||
+    (tool === "shape" && !(shapeFilled && SHAPE_INFO[shapeKind].canFill));
   const toolLabel =
     tool === "fill"
       ? "Fill"
-      : tool === "shape"
-        ? SHAPE_INFO[shapeKind].label
-        : BRUSHES[brush].label;
+      : tool === "spiro"
+        ? "Spirograph"
+        : tool === "shape"
+          ? SHAPE_INFO[shapeKind].label
+          : BRUSHES[brush].label;
 
   const brushOptionsPanel = (
-    <BrushOptionsPanel brush={brush} values={options} onChange={setOption} />
+    <BrushOptionsPanel brush={brush} values={options} onChange={setOption} collapsible={!isPhone} />
   );
   const brushPicker = (
-    <BrushPicker brush={brush} color={color} options={brushOptions} onChange={chooseBrush} />
+    <BrushPicker
+      brush={brush}
+      color={color}
+      options={brushOptions}
+      onChange={chooseBrush}
+      compact={!isPhone && tool !== "brush"}
+    />
   );
-  const symmetryPanel = (hideHeading: boolean) => (
+  const symmetryPanel = (hideHeading: boolean, compact = false) => (
     <SymmetryPanel
+      compact={compact}
       symmetry={symmetry}
       onSymmetry={setSymmetry}
       count={symmetryCount}
@@ -616,14 +641,21 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             onKind={setShapeKind}
             filled={shapeFilled}
             onFilled={setShapeFilled}
+            compact={isPhone}
+          />
+        )}
+        {tool === "spiro" && (
+          <SpiroPanel
             wheel={spiroWheel}
             onWheel={setSpiroWheel}
             hole={spiroHole}
             onHole={setSpiroHole}
-            compact={isPhone}
+            hasRing={!!spiroRing}
+            onDrawFull={drawFullSpiro}
+            onNewRing={() => setSpiroRing(null)}
           />
         )}
-        {tool === "fill" && <FillPanel tolerance={fillTolerance} onTolerance={setFillTolerance} />}
+        {tool === "fill" && <FillPanel />}
         {usesBrush &&
           (isPhone ? (
             <>
@@ -667,6 +699,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       smoothing={smoothing}
       tool={tool}
       shape={shapeSettings}
+      spiro={spiro}
+      onSpiroRing={setSpiroRing}
       onFill={onFill}
       showSizePreview={sizePreview}
       compact={isPhone}
@@ -713,6 +747,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         <div className="topbar__actions" role="toolbar" aria-label="Drawing actions">
           {!isPhone && (
             <>
+              <ShortcutsHelp popover />
               <button
                 type="button"
                 className="icon-button"
@@ -811,13 +846,11 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         </main>
       ) : (
         <main className="workspace">
-          <div className="panel panel--brushes">
-            {panels.brush}
-            <ShortcutsHelp />
-          </div>
+          <div className="panel panel--brushes">{panels.brush}</div>
           {stage}
           <div className="panel panel--settings" role="region" aria-label="Brush settings">
             {sizePanel(false)}
+            {symmetryPanel(false, true)}
             <PanelTabs
               label="Settings"
               tabs={[
@@ -826,12 +859,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
                   label: "Color",
                   summary: <span className="tab-chip" style={{ background: color }} />,
                   content: panels.color,
-                },
-                {
-                  id: "symmetry",
-                  label: "Symmetry",
-                  summary: symmetry === "none" ? "Off" : symmetryLabel(symmetry, symmetryCount),
-                  content: symmetryPanel(false),
                 },
                 {
                   id: "paper",

@@ -2439,3 +2439,399 @@ input[type="range"] {
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
+
+/* ---------- Compact tools panel ---------- */
+
+.brush-groups {
+  gap: 8px;
+}
+
+.brush-group__label {
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.brush-grid {
+  gap: 6px;
+}
+
+.brush-preview {
+  aspect-ratio: 400 / 96;
+}
+
+.brush-tile__body {
+  gap: 2px;
+  padding: 4px 6px 5px;
+}
+
+.brush-tile input:checked + .brush-tile__body {
+  padding: 3.5px 5.5px 4.5px;
+}
+
+.brush-tile__label {
+  font-size: 12px;
+}
+
+.brush-tile__label kbd {
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.panel__heading-value {
+  margin-left: 8px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--navy-60);
+}
+
+/* Brush options as a one-line summary (desktop). */
+.brush-options--collapsible {
+  display: block;
+}
+
+.panel--brushes .brush-options--collapsible {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.brush-options__summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: baseline;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 4px;
+}
+
+.brush-options__summary::-webkit-details-marker {
+  display: none;
+}
+
+.brush-options__title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brush-options__title::before {
+  content: "▸ ";
+}
+
+.brush-options--collapsible[open] .brush-options__title::before {
+  content: "▾ ";
+}
+
+.brush-options__values {
+  min-width: 0;
+  font-size: 11px;
+  color: var(--navy-60);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brush-options__body {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Shapes: one row of icons. */
+.shape-panel {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.shape-kinds {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.shape-kind > span {
+  padding: 4px 0;
+}
+
+.shape-kind input:checked + span {
+  padding: 3.5px 0;
+}
+
+.shape-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.segmented-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--navy-08);
+}
+
+.segmented-row__option {
+  position: relative;
+}
+
+.segmented-row__option input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segmented-row__option span {
+  display: block;
+  padding: 5px 0;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.segmented-row__option input:checked + span {
+  background: var(--white);
+  box-shadow: 0 0 0 2px var(--navy);
+}
+
+.segmented-row__option input:focus-visible + span {
+  box-shadow: var(--focus);
+}
+
+.tool-picker {
+  margin-bottom: 12px;
+}
+
+/* ---------- Symmetry pinned on the right (desktop) ---------- */
+
+.panel--settings > .symmetry--compact {
+  flex: none;
+  margin: 12px 0 0;
+  padding: 0 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--navy-08);
+}
+
+.symmetry--compact .symmetry-grid,
+.panel--settings .symmetry--compact .symmetry-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.symmetry--compact .symmetry-tile__body {
+  padding: 2px;
+}
+
+.symmetry--compact .symmetry-tile input:checked + .symmetry-tile__body {
+  padding: 1.5px;
+}
+
+.symmetry--compact .slider--spaced {
+  margin-top: 8px;
+}
+
+.symmetry--compact .check--spaced {
+  margin-top: 8px;
+}
+
+.panel--settings > .size-panel {
+  padding-bottom: 10px;
+}
+
+.panel-tabs {
+  margin-top: 10px;
+}
+
+.panel-tabs__list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* ---------- Spirograph ---------- */
+
+.spiro-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.spiro-overlay__under {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.7);
+  stroke-width: 5;
+}
+
+.spiro-overlay__ring {
+  fill: none;
+  stroke: var(--navy);
+  stroke-width: 2;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+}
+
+.spiro-overlay__center {
+  fill: var(--navy);
+}
+
+.spiro-overlay__wheel {
+  fill: rgb(255 210 63 / 0.22);
+  stroke: var(--navy);
+  stroke-width: 1.5;
+}
+
+.spiro-overlay__spoke {
+  stroke: rgb(0 0 82 / 0.35);
+  stroke-width: 1.5;
+}
+
+.spiro-overlay__arm {
+  stroke: var(--navy);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.spiro-overlay__pen {
+  fill: var(--pink);
+  stroke: var(--white);
+  stroke-width: 2;
+}
+
+.stage__canvas.is-tool-spiro {
+  cursor: grab;
+}
+
+.spiro-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.spiro-panel .panel__heading,
+.spiro-panel .control__note--top {
+  margin-bottom: 0;
+}
+
+.spiro-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.segmented-row--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.tool-picker__row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ---------- Compact brush strip (Shape / Spirograph tools) ---------- */
+
+.brush-picker--compact .brush-group__label {
+  display: none;
+}
+
+.brush-picker--compact .brush-groups {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.brush-picker--compact .brush-group,
+.brush-picker--compact .brush-grid {
+  display: contents;
+}
+
+.brush-picker--compact .brush-tile__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.brush-picker--compact .brush-tile__body {
+  padding: 3px;
+}
+
+.brush-picker--compact .brush-tile input:checked + .brush-tile__body {
+  padding: 2.5px;
+}
+
+/* ---------- Shortcuts in the top bar ---------- */
+
+.shortcuts--popover {
+  position: relative;
+}
+
+.shortcuts--popover > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--navy);
+  border-radius: 999px;
+  background: var(--white);
+  cursor: pointer;
+  list-style: none;
+}
+
+.shortcuts--popover > summary::-webkit-details-marker {
+  display: none;
+}
+
+.shortcuts--popover > summary:hover {
+  background: var(--yellow-soft);
+}
+
+.shortcuts--popover[open] > dl {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: 340px;
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px -16px rgb(0 0 82 / 0.45);
+}
+
+/* ---------- "Show guides" in the symmetry heading row ---------- */
+
+.symmetry__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.symmetry__header .panel__heading {
+  margin: 0;
+}
+
+.symmetry__header .check {
+  margin: 0;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.symmetry__header .check input {
+  margin: 0;
+}

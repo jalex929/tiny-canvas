@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeRuns, dilate, encodeRuns, floodMask, maskArea } from "./fill";
-import { SHAPE_KINDS, shapePoints, spiroLoops } from "./shapes";
+import { SHAPE_KINDS, shapePoints } from "./shapes";
 
 describe("shapes", () => {
   const bounds = (pts: { x: number; y: number }[]) => ({
@@ -37,12 +37,6 @@ describe("shapes", () => {
 
   it("returns nothing for a tap without a drag", () => {
     expect(shapePoints("star", { x: 10, y: 10 }, { x: 11, y: 10 })).toEqual([]);
-  });
-
-  it("spirograph loop counts follow the gear teeth, like the toy", () => {
-    expect(spiroLoops(52)).toBe(24); // 96 / gcd(96, 52)
-    expect(spiroLoops(30)).toBe(16);
-    expect(spiroLoops(45)).toBe(32);
   });
 
   it("spaces outline points evenly so textured brushes look even", () => {

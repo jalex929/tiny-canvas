@@ -304,7 +304,7 @@ test("size ring shows the real brush size, and recent colors survive a reload", 
   await expect(page.getByRole("button", { name: "Use Teal" })).toBeVisible();
 });
 
-test("shapes, spirograph and the fill tool", async ({ page, isMobile }) => {
+test("shapes and the fill tool", async ({ page, isMobile }) => {
   test.skip(isMobile, "desktop");
   const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
   const drag = async (x1: number, y1: number, x2: number, y2: number) => {
@@ -331,20 +331,11 @@ test("shapes, spirograph and the fill tool", async ({ page, isMobile }) => {
   // Filling it again with the same color changes nothing and says so.
   await page.mouse.click(box.x + 250, box.y + 225);
   await expect(page.getByText("That area is already this color.")).toBeVisible();
-
-  // Spirograph shows its loop count and draws.
-  await page.keyboard.press("u");
-  await page.getByRole("radio", { name: "Spirograph" }).check();
-  await page.getByRole("radio", { name: /30-tooth wheel, 16 loops/ }).check();
-  await expect(page.getByText("16 loops")).toBeVisible();
-  const before = await inkedPixels(page);
-  await drag(420, 120, 640, 340);
-  await expect.poll(() => inkedPixels(page)).toBeGreaterThan(before + 500);
 });
 
 test("symmetry copies are adjustable", async ({ page, isMobile }) => {
   test.skip(isMobile, "desktop");
-  await page.getByRole("tab", { name: /Symmetry/ }).click();
+  // Symmetry is always visible (no tab to open).
   await page.getByRole("radio", { name: "Radial" }).check();
   const copies = page.getByRole("slider", { name: /^Copies/ });
   await copies.fill("9");
@@ -369,4 +360,39 @@ test("background can be any color, and a picker drag is one undo step", async ({
   // Three quick changes count as one step, so one Undo goes back to white.
   await page.getByRole("button", { name: "Undo" }).click();
   await expect(paper).toHaveCSS("background-color", "rgb(255, 255, 255)");
+});
+
+test("spirograph: place a ring, turn the wheel by dragging, draw the full pattern", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop");
+  const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.keyboard.press("s");
+  await expect(page.getByRole("button", { name: "Draw full pattern" })).toBeDisabled();
+
+  // Tap places a medium ring; nothing is drawn yet.
+  await page.mouse.click(cx, cy);
+  await expect(page.getByRole("button", { name: "Draw full pattern" })).toBeEnabled();
+  await expect(page.locator(".spiro-overlay__wheel")).toBeVisible();
+  expect(await inkedPixels(page)).toBe(0);
+
+  // Turning the wheel part way draws part of the pattern, as one undo step.
+  await page.mouse.move(cx, cy - 150);
+  await page.mouse.down();
+  for (let i = 1; i <= 30; i++) {
+    const a = -Math.PI / 2 + (i / 30) * Math.PI;
+    await page.mouse.move(cx + Math.cos(a) * 150, cy + Math.sin(a) * 150);
+  }
+  await page.mouse.up();
+  const partial = await inkedPixels(page);
+  expect(partial).toBeGreaterThan(200);
+
+  await page.getByRole("button", { name: "Draw full pattern" }).click();
+  await expect.poll(() => inkedPixels(page)).toBeGreaterThan(partial * 3);
+
+  await page.getByRole("button", { name: "New ring" }).click();
+  await expect(page.locator(".spiro-overlay__wheel")).toHaveCount(0);
 });
