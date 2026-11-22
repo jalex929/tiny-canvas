@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { BRUSHES } from "../engine/brushes";
 import { normalizeHex } from "../engine/color";
 import { PRESSURE_CURVES, PRESSURE_INFO, type PressureCurve } from "../engine/pressure";
+import { SMOOTHING_INFO, SMOOTHING_LEVELS, type SmoothingLevel } from "../engine/stabilizer";
 import { SYMMETRY_INFO } from "../engine/symmetry";
 import {
   BRUSH_GROUPS,
@@ -161,7 +162,11 @@ export function CanvasPanel({
   penOnly,
   onPenOnly,
   penDetected,
+  smoothing,
+  onSmoothing,
 }: {
+  smoothing: SmoothingLevel;
+  onSmoothing: (level: SmoothingLevel) => void;
   shape: CanvasShapeId | null;
   hasMarks: boolean;
   onShape: (id: CanvasShapeId) => void;
@@ -173,6 +178,26 @@ export function CanvasPanel({
 }) {
   return (
     <>
+      <fieldset className="control">
+        <legend className="panel__heading">Smoothing</legend>
+        <p className="control__note control__note--top">
+          Steadies shaky lines. Stronger feels calmer but trails your finger a little.
+        </p>
+        <div className="chips">
+          {SMOOTHING_LEVELS.map((level) => (
+            <label key={level} className="chip">
+              <input
+                type="radio"
+                name="smoothing"
+                checked={smoothing === level}
+                onChange={() => onSmoothing(level)}
+              />
+              <span>{SMOOTHING_INFO[level].label}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <fieldset className="control">
         <legend className="panel__heading">Canvas shape</legend>
         <div className="shape-grid">

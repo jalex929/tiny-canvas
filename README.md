@@ -20,6 +20,9 @@ themselves in your browser, with no account needed.
 - **Straight lines:** hold Shift (snaps when within 6° of flat, upright or 45°), or use the
   Line hotspot: hold it with one thumb while drawing, or tap to lock it on (L). Angle choices:
   any, horizontal, vertical, 45° up, 45° down.
+- **Smoothing:** Off / Light / Medium (default) / Strong. A "lazy brush": the line trails the
+  pointer on a short string measured in screen pixels, so hand jitter never reaches it and it
+  feels the same at any zoom; the line still ends where you lift.
 - **Pen pressure:** Apple Pencil / Surface Pen / Wacom / Android stylus pressure via Pointer
   Events. Full pressure = full brush size, lightest touch = 15%. Curves: Soft, Normal, Firm,
   Off; readings are smoothed. Once a stylus is detected, "Only the pen draws" (on by default)

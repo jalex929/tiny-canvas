@@ -27,7 +27,7 @@ const TAB_TITLES: Record<DrawerTab, string> = {
   brush: "Brushes",
   color: "Color",
   effects: "Symmetry and background",
-  canvas: "Canvas and pen",
+  canvas: "Lines, pen and canvas",
 };
 
 /**

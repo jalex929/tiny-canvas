@@ -9,6 +9,7 @@ import {
 } from "../engine/lines";
 import { shapePressure, smoothPressure, type PressureCurve } from "../engine/pressure";
 import { randomSeed } from "../engine/random";
+import { pullBrush, smoothingRadius, type SmoothingLevel } from "../engine/stabilizer";
 import { drawPlaced, drawStroke, drawStrokes, type RenderTarget } from "../engine/render";
 import { symmetryGuides } from "../engine/symmetry";
 import type { Point, Stroke } from "../engine/types";
@@ -35,6 +36,8 @@ interface Props {
   template: StrokeTemplate;
   showGuides: boolean;
   pressureCurve: PressureCurve;
+  /** Steadies freehand lines (lazy brush). */
+  smoothing: SmoothingLevel;
   /** When a stylus is in use, fingers only move and zoom (palm rejection). */
   penOnly: boolean;
   onPenDetected: () => void;
@@ -72,6 +75,9 @@ interface LiveStroke {
   /** …and its index, so a line replaces only what comes after it. */
   anchorIndex: number;
   lastPressure?: number;
+  /** Where the smoothed brush is, and where the pointer really is (for the final catch-up). */
+  brush: { x: number; y: number };
+  lastRaw?: { x: number; y: number; p: number };
 }
 
 const KEY_STEP = 10;
@@ -94,6 +100,7 @@ export function CanvasStage({
   template,
   showGuides,
   pressureCurve,
+  smoothing,
   penOnly,
   onPenDetected,
   eyedropper,
@@ -149,8 +156,8 @@ export function CanvasStage({
 
   const templateRef = useRef(template);
   templateRef.current = template;
-  const pressureRef = useRef({ curve: pressureCurve, penOnly });
-  pressureRef.current = { curve: pressureCurve, penOnly };
+  const pressureRef = useRef({ curve: pressureCurve, penOnly, smoothing });
+  pressureRef.current = { curve: pressureCurve, penOnly, smoothing };
   const strokesRef = useRef(scene.strokes);
   strokesRef.current = scene.strokes;
 
@@ -388,6 +395,7 @@ export function CanvasStage({
       anchor: point,
       anchorIndex: 0,
       lastPressure: point.p,
+      brush: { x: point.x, y: point.y },
       stroke: { ...templateRef.current, id: newStrokeId(), seed: randomSeed(), points: [point] },
     };
     requestFrame();
@@ -572,11 +580,18 @@ export function CanvasStage({
       extend({ ...toDoc(event), p: live.anchor.p }, true);
       return;
     }
+    // String length is set in screen pixels, so smoothing feels the same at any zoom.
+    const radius = smoothingRadius(pressureRef.current.smoothing) / viewRef.current.s;
     const samples = event.nativeEvent.getCoalescedEvents?.() ?? [];
     for (const sample of samples.length ? samples : [event.nativeEvent]) {
       const p = pressureOf(sample, live.lastPressure);
       live.lastPressure = p;
-      extend({ ...toDoc(sample), p }, false);
+      const raw = toDoc(sample);
+      live.lastRaw = { ...raw, p };
+      const next = pullBrush(live.brush, raw, radius);
+      if (!next) continue;
+      live.brush = next;
+      extend({ ...next, p }, false);
     }
   };
 
@@ -603,7 +618,14 @@ export function CanvasStage({
       gestureRef.current = null;
       setPanning(false);
     }
-    if (liveRef.current?.pointerId === event.pointerId) finish(true);
+    const live = liveRef.current;
+    if (live?.pointerId === event.pointerId) {
+      // Smoothing trails the pointer; finish the line where it was lifted.
+      if (live.lastRaw && !event.shiftKey && !lineRef.current.active) {
+        extend(live.lastRaw, false);
+      }
+      finish(true);
+    }
   };
 
   // Keyboard drawing: an accessible alternative to pointer input.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BRUSHES, defaultOptions } from "./engine/brushes";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
 import type { PressureCurve } from "./engine/pressure";
+import type { SmoothingLevel } from "./engine/stabilizer";
 import { SYMMETRY_INFO } from "./engine/symmetry";
 import {
   BRUSH_IDS,
@@ -136,6 +137,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [penOnlySetting, setPenOnlySetting] = useState(true);
   const [penDetected, setPenDetected] = useState(false);
   const [eyedropper, setEyedropper] = useState(false);
+  const [smoothing, setSmoothing] = useState<SmoothingLevel>("medium");
   const [showGuides, setShowGuidesState] = useState(() => safeStorage.get(GUIDES_KEY) !== "off");
   const setShowGuides = (value: boolean) => {
     setShowGuidesState(value);
@@ -506,6 +508,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         penOnly={penOnlySetting}
         onPenOnly={setPenOnlySetting}
         penDetected={penDetected}
+        smoothing={smoothing}
+        onSmoothing={setSmoothing}
       />
     ),
   };
@@ -516,6 +520,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       template={template}
       showGuides={showGuides}
       pressureCurve={pressureCurve}
+      smoothing={smoothing}
       penOnly={penOnlySetting && penDetected}
       onPenDetected={onPenDetected}
       eyedropper={eyedropper}
@@ -645,7 +650,11 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             <Section id="background" title="Background">
               {backgroundPanel(true)}
             </Section>
-            <Section id="canvas" title="Canvas & pen" summary={shapeLabel}>
+            <Section
+              id="canvas"
+              title="Lines, pen & canvas"
+              summary={`${shapeLabel}${smoothing === "off" ? "" : " · smooth"}`}
+            >
               {panels.canvas}
             </Section>
             <ShortcutsHelp />
