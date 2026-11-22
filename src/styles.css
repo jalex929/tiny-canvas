@@ -3168,7 +3168,7 @@ input[type="range"] {
 }
 
 /* The shape menu opens as a card above the tab bar, never clipped by the sheet. */
-.app--phone .shape-menu {
+.shape-menu--phone {
   position: fixed;
   left: 12px;
   right: 12px;
@@ -3177,7 +3177,7 @@ input[type="range"] {
   width: auto;
 }
 
-.app--phone .shape-menu__kind small {
+.shape-menu--phone .shape-menu__kind small {
   font-size: 11px;
 }
 
@@ -3191,4 +3191,101 @@ input[type="range"] {
 .drawer__sheet .spiro-panel > .control__note,
 .drawer__sheet .spiro-panel__actions {
   grid-column: 1 / -1;
+}
+
+/* Desktop: floats above everything, placed next to the Shape button by script. */
+.shape-menu--floating {
+  position: fixed;
+  z-index: 60;
+}
+
+.shape-menu--phone {
+  z-index: 60;
+}
+
+/* Bigger symmetry tiles so the patterns are easy to see. */
+.symmetry--compact .symmetry-grid,
+.panel--settings .symmetry--compact .symmetry-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.symmetry--compact .symmetry-preview {
+  max-width: none;
+}
+
+/* Wider shape menu so every label fits. */
+.shape-menu--floating {
+  width: 300px;
+}
+
+/* Color tab: the tab already names the section and shows the color. */
+.panel-tabs__panel #color-heading,
+.panel-tabs__panel .current-color {
+  display: none;
+}
+
+/* "Use brush color": a round chip at the end of the Any-color row. */
+.custom-color {
+  align-items: center;
+}
+
+.bg-use-brush {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1.5px solid var(--navy);
+  border-radius: 50%;
+  color: var(--white);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 2px var(--white);
+}
+
+.bg-use-brush .icon {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
+}
+
+.bg-use-brush:hover {
+  outline: 2px solid var(--yellow);
+}
+
+.panel--settings .hex-field input {
+  width: 84px;
+}
+
+/* Tighter sections inside the settings tabs. */
+.panel-tabs__panel .control + .control {
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.panel-tabs__panel .bg-grid .bg-chip {
+  aspect-ratio: auto;
+  height: 28px;
+}
+
+.panel-tabs__panel .shape-tile__frame {
+  width: 24px;
+  height: 24px;
+}
+
+.panel-tabs__panel .shape-tile__body {
+  padding: 5px 2px 4px;
+}
+
+.panel-tabs__panel .shape-tile input:checked + .shape-tile__body {
+  padding: 4.5px 1.5px 3.5px;
+}
+
+.panel--settings .picker span {
+  white-space: nowrap;
+}
+
+.panel--settings .hex-field input {
+  width: 78px;
 }

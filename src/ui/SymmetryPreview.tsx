@@ -60,7 +60,7 @@ export function SymmetryPreview({
         id: "symmetry-preview",
         brush: "pen",
         color: ink,
-        size: 70,
+        size: 90,
         opacity: 1,
         symmetry: mode,
         ...(count ? { symmetryCount: count } : {}),

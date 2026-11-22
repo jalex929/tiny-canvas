@@ -448,8 +448,9 @@ export function CanvasPanel({
       {part !== "shape" && (
         <>
           <fieldset className="control">
-            <legend className="panel__heading">Smoothing</legend>
-            <p className="control__note control__note--top">Steadies shaky lines.</p>
+            <legend className="panel__heading" title="Steadies shaky lines">
+              Smoothing
+            </legend>
             <div className="segmented-row segmented-row--4">
               {SMOOTHING_LEVELS.map((level) => (
                 <label key={level} className="segmented-row__option">
@@ -898,15 +899,17 @@ export function BackgroundPanel({
             autoComplete="off"
           />
         </form>
+        <button
+          type="button"
+          className="bg-use-brush"
+          style={{ background: color }}
+          onClick={() => onBackground(color)}
+          aria-label="Use brush color as the background"
+          title="Use brush color"
+        >
+          <Icon name="brush" />
+        </button>
       </div>
-      <button
-        type="button"
-        className="button button--small bg-use-brush"
-        onClick={() => onBackground(color)}
-      >
-        <span className="bg-use-brush__chip" style={{ background: color }} aria-hidden="true" />
-        Use brush color
-      </button>
     </div>
   );
 }

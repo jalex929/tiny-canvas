@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BRUSHES } from "../engine/brushes";
 import { SHAPE_INFO, SHAPE_KINDS, shapePoints, type ShapeKind } from "../engine/shapes";
 import type { BrushId } from "../engine/types";
@@ -48,6 +49,37 @@ export function DrawPalette(props: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
   /** The brush tile is highlighted only while the brush tool is in use. */
   const activeBrush = tool === "brush" ? brush : null;
+  /** Where the floating menu sits (desktop); phones show it as a card above the tab bar. */
+  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(null);
+  const isPhone =
+    typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 900px)").matches;
+
+  // The tools panel crops anything that spills out of it, so the menu is rendered at the
+  // top of the page and placed next to the Shape button: below it if there's room, above
+  // it if not, and always inside the window.
+  useLayoutEffect(() => {
+    if (!shapeMenu || isPhone) return;
+    const place = () => {
+      const button = shapeButton.current?.getBoundingClientRect();
+      const menu = menuRef.current?.getBoundingClientRect();
+      if (!button || !menu) return;
+      const gap = 6;
+      const left = Math.min(Math.max(8, button.left), window.innerWidth - menu.width - 8);
+      const below = button.bottom + gap;
+      const top =
+        below + menu.height <= window.innerHeight - 8
+          ? below
+          : Math.max(8, button.top - gap - menu.height);
+      setMenuPos({ left, top });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [shapeMenu, isPhone]);
 
   useEffect(() => {
     if (!shapeMenu) return;
@@ -146,48 +178,62 @@ export function DrawPalette(props: Props) {
                 <kbd aria-hidden="true">U</kbd>
               </span>
             </button>
-            {shapeMenu && (
-              <div ref={menuRef} className="shape-menu" role="dialog" aria-label="Choose a shape">
-                <fieldset className="shape-menu__kinds">
-                  <legend className="panel__heading">Shape</legend>
-                  {SHAPE_KINDS.map((k) => (
-                    <label key={k} className="shape-menu__kind">
-                      <input
-                        type="radio"
-                        name="shape-kind"
-                        checked={props.shapeKind === k}
-                        onChange={() => props.onShapeKind(k)}
-                        onClick={() => setShapeMenu(false)}
-                        onKeyDown={(e) => e.key === "Enter" && setShapeMenu(false)}
-                      />
-                      <span>
-                        <ShapeIcon kind={k} size={26} />
-                        <small>{SHAPE_INFO[k].label}</small>
-                      </span>
-                    </label>
-                  ))}
-                </fieldset>
-                <fieldset className="segmented-row">
-                  <legend className="visually-hidden">Style</legend>
-                  {(
-                    [
-                      [false, `Outline with ${BRUSHES[brush].label}`],
-                      [true, "Filled"],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <label key={String(value)} className="segmented-row__option">
-                      <input
-                        type="radio"
-                        name="shape-style"
-                        checked={props.shapeFilled === value}
-                        onChange={() => props.onShapeFilled(value)}
-                      />
-                      <span>{label}</span>
-                    </label>
-                  ))}
-                </fieldset>
-              </div>
-            )}
+            {shapeMenu &&
+              createPortal(
+                <div
+                  ref={menuRef}
+                  className={`shape-menu ${isPhone ? "shape-menu--phone" : "shape-menu--floating"}`}
+                  role="dialog"
+                  aria-label="Choose a shape"
+                  style={
+                    isPhone
+                      ? undefined
+                      : menuPos
+                        ? { left: menuPos.left, top: menuPos.top }
+                        : { visibility: "hidden" }
+                  }
+                >
+                  <fieldset className="shape-menu__kinds">
+                    <legend className="panel__heading">Shape</legend>
+                    {SHAPE_KINDS.map((k) => (
+                      <label key={k} className="shape-menu__kind">
+                        <input
+                          type="radio"
+                          name="shape-kind"
+                          checked={props.shapeKind === k}
+                          onChange={() => props.onShapeKind(k)}
+                          onClick={() => setShapeMenu(false)}
+                          onKeyDown={(e) => e.key === "Enter" && setShapeMenu(false)}
+                        />
+                        <span>
+                          <ShapeIcon kind={k} size={26} />
+                          <small>{SHAPE_INFO[k].label}</small>
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <fieldset className="segmented-row">
+                    <legend className="visually-hidden">Style</legend>
+                    {(
+                      [
+                        [false, `Outline with ${BRUSHES[brush].label}`],
+                        [true, "Filled"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={String(value)} className="segmented-row__option">
+                        <input
+                          type="radio"
+                          name="shape-style"
+                          checked={props.shapeFilled === value}
+                          onChange={() => props.onShapeFilled(value)}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                </div>,
+                document.body,
+              )}
           </div>
           {toolTile("fill", "Fill", <Icon name="bucket" />, "G")}
           {toolTile("spiro", "Spirograph", <Icon name="spiro" />, "S")}
