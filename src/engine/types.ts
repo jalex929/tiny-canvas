@@ -11,6 +11,8 @@
  * Default document size (landscape 4:3). Each drawing has its own size, picked from
  * CANVAS_SHAPES; drawings saved before sizes existed use this one.
  */
+import type { FillMask } from "./fill";
+
 export const DOC_WIDTH = 1600;
 export const DOC_HEIGHT = 1200;
 
@@ -39,23 +41,34 @@ export const BRUSH_IDS = [
   "calligraphy",
   "spray",
   "neon",
-  "rainbow",
   "sparkle",
   "hearts",
   "pattern",
-  "threads",
+  "rainbow",
   "eraser",
+  // Not in the picker: paints fill-tool areas and filled shapes.
+  "fill",
+  // Retired from the picker (2026-11-22); kept so older drawings still render.
+  "threads",
 ] as const;
 export type BrushId = (typeof BRUSH_IDS)[number];
 
 export const BRUSH_GROUPS: { label: string; brushes: BrushId[] }[] = [
   { label: "Draw", brushes: ["pen", "pencil", "marker", "calligraphy"] },
-  { label: "Paint & glow", brushes: ["spray", "neon", "rainbow"] },
-  { label: "Playful", brushes: ["sparkle", "hearts", "pattern", "threads"] },
+  { label: "Paint & glow", brushes: ["spray", "neon"] },
+  { label: "Playful", brushes: ["sparkle", "hearts", "pattern", "rainbow"] },
   { label: "Clean up", brushes: ["eraser"] },
 ];
 
-export const SYMMETRY_MODES = ["none", "mirror", "quad", "radial", "kaleidoscope"] as const;
+export const SYMMETRY_MODES = [
+  "none",
+  "mirror",
+  "quad",
+  "radial",
+  "kaleidoscope",
+  "spiral",
+  "tile",
+] as const;
 export type SymmetryMode = (typeof SYMMETRY_MODES)[number];
 
 export interface Point {
@@ -80,6 +93,10 @@ export interface Stroke {
   points: Point[];
   /** Brush-specific settings (nib angle, density, spacing…). Missing keys use defaults. */
   options?: Record<string, number>;
+  /** Copies for radial, kaleidoscope and spiral symmetry. Missing = 6. */
+  symmetryCount?: number;
+  /** Fill-tool area at document resolution ("fill" brush only). */
+  mask?: FillMask;
 }
 
 export type Action =

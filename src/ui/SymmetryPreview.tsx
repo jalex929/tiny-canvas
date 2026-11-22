@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { drawStroke } from "../engine/render";
-import { symmetryGuides } from "../engine/symmetry";
+import { symmetryGuideLines } from "../engine/symmetry";
 import { DOC_HEIGHT, DOC_WIDTH, type Point, type SymmetryMode } from "../engine/types";
 
 const CSS_WIDTH = 64;
@@ -17,7 +17,15 @@ const MOTIF: Point[] = Array.from({ length: 24 }, (_, i) => {
 });
 
 /** Draws what a symmetry mode does, using the real engine. */
-export function SymmetryPreview({ mode, ink }: { mode: SymmetryMode; ink: string }) {
+export function SymmetryPreview({
+  mode,
+  ink,
+  count,
+}: {
+  mode: SymmetryMode;
+  ink: string;
+  count?: number;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -38,13 +46,10 @@ export function SymmetryPreview({ mode, ink }: { mode: SymmetryMode; ink: string
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
-    for (const angle of symmetryGuides(mode)) {
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
-      const r = canvas.width;
+    for (const line of symmetryGuideLines(mode, count, DOC_WIDTH, DOC_HEIGHT)) {
       ctx.beginPath();
-      ctx.moveTo(cx - Math.cos(angle) * r, cy - Math.sin(angle) * r);
-      ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+      ctx.moveTo(line.x1 * scale, line.y1 * scale);
+      ctx.lineTo(line.x2 * scale, line.y2 * scale);
       ctx.stroke();
     }
     ctx.restore();
@@ -58,12 +63,13 @@ export function SymmetryPreview({ mode, ink }: { mode: SymmetryMode; ink: string
         size: 70,
         opacity: 1,
         symmetry: mode,
+        ...(count ? { symmetryCount: count } : {}),
         seed: 1,
         points: MOTIF,
       },
       { ctx: scratch, scale },
     );
-  }, [mode, ink]);
+  }, [mode, ink, count]);
 
   return <canvas ref={ref} className="symmetry-preview" aria-hidden="true" />;
 }

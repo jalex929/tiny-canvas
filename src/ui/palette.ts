@@ -54,7 +54,14 @@ export const PALETTE: NamedColor[] = [
 export const BACKGROUNDS: NamedColor[] = [
   { name: "Paper white", hex: "#ffffff" },
   { name: "Cream", hex: "#fff6e0" },
+  { name: "Sand", hex: "#f1e3c8" },
+  { name: "Blush", hex: "#fde4ec" },
+  { name: "Lavender mist", hex: "#ece6ff" },
   { name: "Pale sky", hex: "#e3f2ff" },
+  { name: "Mint", hex: "#e2f6ec" },
+  { name: "Fog gray", hex: "#e9e8ef" },
+  { name: "Kraft", hex: "#c9a57a" },
+  { name: "Forest", hex: "#173b2c" },
   { name: "Lab navy", hex: "#000052" },
   { name: "Night", hex: "#111018" },
 ];

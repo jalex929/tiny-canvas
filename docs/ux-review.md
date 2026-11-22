@@ -43,3 +43,15 @@ screenshots.
 | 6   | The Effects tab read "Symmetry" even when symmetry was off.                                                           | Low      | Shows "None" or the active mode.                                                                                                      |
 | 7   | The drawing title didn't look editable.                                                                               | Low      | Dotted underline, tooltip, and a pencil icon on phones.                                                                               |
 | 8   | Neon's flat ends looked cut off.                                                                                      | Low      | Rounded caps at the start and end only (not between runs, which would glow brighter).                                                 |
+
+## Pass 3 (2026-11-22): tools and settings layout
+
+| #   | Finding / request                               | Change                                                                                                                                                            |
+| --- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | No way to fill areas or draw shapes.            | Brush / Shape / Fill tools (B / U / G). Shapes use the current brush or fill solid; fill is a stored mask, so it is exact at any zoom.                            |
+| 2   | Spirograph requested.                           | Spirograph shape with real gear ratios (wheel teeth set the loop count) and pen hole.                                                                             |
+| 3   | Line tool angle menu was more than people need. | One Line button: any angle, soft snap to flat, upright and 45°.                                                                                                   |
+| 4   | More playful mirroring requested.               | Spiral and Tile modes; 2–16 copies for radial, kaleidoscope and spiral.                                                                                           |
+| 5   | Background choice was limited.                  | 12 presets plus any color; picker drags collapse into one undo step.                                                                                              |
+| 6   | Right panel needed long scrolling on laptops.   | Size/opacity pinned; Color / Symmetry / Paper / Pen tabs. Measured 0 px of overflow in every tab at 1366 × 768. Shortcuts moved to the bottom of the tools panel. |
+| 7   | Brush groups were uneven.                       | Threads retired from the picker; Rainbow moved to Playful, so groups come in pairs.                                                                               |

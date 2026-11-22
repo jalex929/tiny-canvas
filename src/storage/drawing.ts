@@ -1,4 +1,5 @@
 import { normalizeHex } from "../engine/color";
+import type { FillMask } from "../engine/fill";
 import {
   BRUSH_IDS,
   DEFAULT_SIZE,
@@ -90,7 +91,8 @@ export function parseAction(value: unknown): Action | null {
 
 function parseStroke(value: unknown): Stroke | null {
   if (!isRecord(value)) return null;
-  const { id, brush, color, size, opacity, symmetry, seed, points, options } = value;
+  const { id, brush, color, size, opacity, symmetry, seed, points, options, symmetryCount, mask } =
+    value;
   if (typeof id !== "string") return null;
   if (!BRUSH_IDS.includes(brush as BrushId)) return null;
   const hex = typeof color === "string" ? normalizeHex(color) : null;
@@ -111,6 +113,10 @@ function parseStroke(value: unknown): Stroke | null {
     seed,
     points: parsed,
     ...(isRecord(options) ? { options: numericEntries(options) } : {}),
+    ...(isFiniteNumber(symmetryCount)
+      ? { symmetryCount: Math.round(clamp(symmetryCount, 2, 16)) }
+      : {}),
+    ...(brush === "fill" && parseMask(mask) ? { mask: parseMask(mask)! } : {}),
   };
 }
 
@@ -121,6 +127,16 @@ export function compactStroke(stroke: Stroke): Stroke {
     ...stroke,
     points: stroke.points.map((pt) => ({ x: round(pt.x), y: round(pt.y), p: round(pt.p) })),
   };
+}
+
+/** A fill area must be a sane size, with whole-number runs inside it. */
+function parseMask(value: unknown): FillMask | null {
+  if (!isRecord(value)) return null;
+  const { width, height, runs } = value;
+  if (!isFiniteNumber(width) || !isFiniteNumber(height) || !Array.isArray(runs)) return null;
+  if (width < 1 || height < 1 || width > MAX_EDGE || height > MAX_EDGE) return null;
+  if (runs.length % 3 !== 0 || !runs.every((n) => Number.isInteger(n) && n >= 0)) return null;
+  return { width, height, runs: runs as number[] };
 }
 
 function numericEntries(record: Record<string, unknown>): Record<string, number> {

@@ -5,40 +5,68 @@ export type Matrix = readonly [number, number, number, number, number, number];
 
 export const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
 
-export const SYMMETRY_INFO: Record<SymmetryMode, { label: string; description: string }> = {
-  none: { label: "Off", description: "No symmetry" },
-  mirror: { label: "Mirror", description: "Mirrored left and right" },
-  quad: { label: "Mirror ×4", description: "Mirrored left-right and top-bottom, 4 copies" },
-  radial: { label: "Radial ×6", description: "Turned around the center, 6 copies" },
+/** Copies for the modes that take a count (radial, kaleidoscope, spiral). */
+export const DEFAULT_SYMMETRY_COUNT = 6;
+export const MIN_SYMMETRY_COUNT = 2;
+export const MAX_SYMMETRY_COUNT = 16;
+/** Tile repeats the drawing on a grid of thirds. */
+const TILE_DIVISIONS = 3;
+/** Each spiral copy is this much smaller than the one before. */
+const SPIRAL_SHRINK = 0.86;
+
+export const SYMMETRY_INFO: Record<
+  SymmetryMode,
+  { label: string; description: string; usesCount: boolean; /** For small tiles. */ short?: string }
+> = {
+  none: { label: "Off", description: "No symmetry", usesCount: false },
+  mirror: { label: "Mirror", description: "Mirrored left and right", usesCount: false },
+  quad: {
+    label: "Mirror ×4",
+    description: "Mirrored left-right and top-bottom, 4 copies",
+    usesCount: false,
+  },
+  radial: { label: "Radial", description: "Turned around the center", usesCount: true },
   kaleidoscope: {
     label: "Kaleidoscope",
-    description: "Turned and mirrored around the center, 12 copies",
+    short: "Kaleido",
+    description: "Turned and mirrored around the center",
+    usesCount: true,
+  },
+  spiral: {
+    label: "Spiral",
+    description: "Each copy turned and shrunk toward the center, like a vortex",
+    usesCount: true,
+  },
+  tile: {
+    label: "Tile",
+    description: "Repeated across the canvas like wallpaper",
+    usesCount: false,
   },
 };
 
-/**
- * Guide lines for each mode, as angles (radians) of lines through the center.
- * Mirror lines for mirror modes; spokes between copies for radial modes.
- */
-export function symmetryGuides(mode: SymmetryMode): number[] {
-  switch (mode) {
-    case "none":
-      return [];
-    case "mirror":
-      return [Math.PI / 2];
-    case "quad":
-      return [0, Math.PI / 2];
-    case "radial":
-      return [0, 1, 2].map((k) => (k * Math.PI) / 3 + Math.PI / 2);
-    case "kaleidoscope":
-      return [0, 1, 2, 3, 4, 5].map((k) => (k * Math.PI) / 6 + Math.PI / 2);
-  }
+export const clampCount = (n: number | undefined) =>
+  Math.round(
+    Math.min(MAX_SYMMETRY_COUNT, Math.max(MIN_SYMMETRY_COUNT, n ?? DEFAULT_SYMMETRY_COUNT)),
+  );
+
+/** Short label including the count, e.g. "Radial ×8". */
+export function symmetryLabel(mode: SymmetryMode, count?: number): string {
+  const info = SYMMETRY_INFO[mode];
+  if (!info.usesCount) return info.label;
+  const copies = mode === "kaleidoscope" ? clampCount(count) * 2 : clampCount(count);
+  return `${info.label} ×${copies}`;
 }
 
 /** Every copy a stroke is drawn with. The first entry is always the original. */
-export function symmetryMatrices(mode: SymmetryMode, width: number, height: number): Matrix[] {
+export function symmetryMatrices(
+  mode: SymmetryMode,
+  width: number,
+  height: number,
+  count: number = DEFAULT_SYMMETRY_COUNT,
+): Matrix[] {
   const cx = width / 2;
   const cy = height / 2;
+  const n = clampCount(count);
   const flipX: Matrix = [-1, 0, 0, 1, 2 * cx, 0];
   const flipY: Matrix = [1, 0, 0, -1, 0, 2 * cy];
   switch (mode) {
@@ -49,12 +77,85 @@ export function symmetryMatrices(mode: SymmetryMode, width: number, height: numb
     case "quad":
       return [IDENTITY, flipX, flipY, multiply(flipX, flipY)];
     case "radial":
-      return range(6).map((k) => rotationAbout(cx, cy, (2 * Math.PI * k) / 6));
+      return range(n).map((k) => turnAbout(cx, cy, (2 * Math.PI * k) / n));
     case "kaleidoscope":
-      return range(6).flatMap((k) => {
-        const rotation = rotationAbout(cx, cy, (2 * Math.PI * k) / 6);
+      return range(n).flatMap((k) => {
+        const rotation = turnAbout(cx, cy, (2 * Math.PI * k) / n);
         return [rotation, multiply(rotation, flipX)];
       });
+    case "spiral":
+      return range(n).map((k) => turnAbout(cx, cy, (2 * Math.PI * k) / n, SPIRAL_SHRINK ** k));
+    case "tile": {
+      // Enough copies that a mark anywhere repeats across the whole canvas.
+      const stepX = width / TILE_DIVISIONS;
+      const stepY = height / TILE_DIVISIONS;
+      const reach = TILE_DIVISIONS - 1;
+      const out: Matrix[] = [IDENTITY];
+      for (let i = -reach; i <= reach; i++) {
+        for (let j = -reach; j <= reach; j++) {
+          if (i !== 0 || j !== 0) out.push([1, 0, 0, 1, i * stepX, j * stepY]);
+        }
+      }
+      return out;
+    }
+  }
+}
+
+export interface GuideLine {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+/**
+ * Dashed guides drawn over the canvas (never exported): mirror lines for mirror modes,
+ * spokes between copies for turning modes, a grid for tile.
+ */
+export function symmetryGuideLines(
+  mode: SymmetryMode,
+  count: number | undefined,
+  width: number,
+  height: number,
+): GuideLine[] {
+  const cx = width / 2;
+  const cy = height / 2;
+  const r = Math.hypot(width, height);
+  const n = clampCount(count);
+  const fullLine = (angle: number): GuideLine => ({
+    x1: cx - Math.cos(angle) * r,
+    y1: cy - Math.sin(angle) * r,
+    x2: cx + Math.cos(angle) * r,
+    y2: cy + Math.sin(angle) * r,
+  });
+  const ray = (angle: number): GuideLine => ({
+    x1: cx,
+    y1: cy,
+    x2: cx + Math.cos(angle) * r,
+    y2: cy + Math.sin(angle) * r,
+  });
+  switch (mode) {
+    case "none":
+      return [];
+    case "mirror":
+      return [fullLine(Math.PI / 2)];
+    case "quad":
+      return [fullLine(0), fullLine(Math.PI / 2)];
+    case "radial":
+    case "spiral":
+      return range(n).map((k) => ray(-Math.PI / 2 + (2 * Math.PI * k) / n));
+    case "kaleidoscope":
+      // Mirror axes of a turn-and-flip pattern sit at half the turning angle.
+      return range(n).map((k) => fullLine(Math.PI / 2 + (Math.PI * k) / n));
+    case "tile": {
+      const lines: GuideLine[] = [];
+      for (let k = 1; k < TILE_DIVISIONS; k++) {
+        const x = (width * k) / TILE_DIVISIONS;
+        const y = (height * k) / TILE_DIVISIONS;
+        lines.push({ x1: x, y1: 0, x2: x, y2: height }, { x1: 0, y1: y, x2: width, y2: y });
+      }
+      return lines;
+    }
   }
 }
 
@@ -76,9 +177,10 @@ export function multiply(first: Matrix, second: Matrix): Matrix {
   ];
 }
 
-function rotationAbout(cx: number, cy: number, angle: number): Matrix {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
+/** Turn by `angle` (and scale by `scale`) around (cx, cy). */
+function turnAbout(cx: number, cy: number, angle: number, scale = 1): Matrix {
+  const cos = Math.cos(angle) * scale;
+  const sin = Math.sin(angle) * scale;
   return [cos, sin, -sin, cos, cx - cos * cx + sin * cy, cy - sin * cx - cos * cy];
 }
 

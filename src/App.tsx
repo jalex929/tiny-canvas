@@ -4,7 +4,10 @@ import { normalizeHex } from "./engine/color";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
 import type { PressureCurve } from "./engine/pressure";
 import type { SmoothingLevel } from "./engine/stabilizer";
-import { SYMMETRY_INFO } from "./engine/symmetry";
+import { FILL_TOLERANCE_INFO, type FillTolerance } from "./engine/fill";
+import { SHAPE_INFO, type ShapeKind } from "./engine/shapes";
+import { symmetryLabel } from "./engine/symmetry";
+import { computeFill } from "./ui/fillTool";
 import {
   BRUSH_IDS,
   CANVAS_SHAPES,
@@ -32,14 +35,18 @@ import {
 import { colorName } from "./ui/palette";
 import { Icon } from "./ui/Icon";
 import { MoreMenu } from "./ui/MoreMenu";
+import { PanelTabs } from "./ui/PanelTabs";
 import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
+  FillPanel,
+  ShapePanel,
+  ToolPicker,
+  type Tool,
   BackgroundPanel,
   BrushOptionsPanel,
   BrushPicker,
   CanvasPanel,
   ColorPanel,
-  Section,
   SizePanel,
   SymmetryPanel,
   SIZE_MAX,
@@ -143,6 +150,13 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const sizePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [opacity, setOpacity] = useState(1);
   const [symmetry, setSymmetry] = useState<SymmetryMode>("none");
+  const [symmetryCount, setSymmetryCount] = useState(6);
+  const [tool, setTool] = useState<Tool>("brush");
+  const [shapeKind, setShapeKind] = useState<ShapeKind>("ellipse");
+  const [shapeFilled, setShapeFilled] = useState(false);
+  const [spiroWheel, setSpiroWheel] = useState(52);
+  const [spiroHole, setSpiroHole] = useState(0.75);
+  const [fillTolerance, setFillTolerance] = useState<FillTolerance>("normal");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(store ? "idle" : "unavailable");
   const [shelfOpen, setShelfOpen] = useState(false);
   const [shelf, setShelf] = useState<DrawingSummary[] | "loading" | "error">("loading");
@@ -322,6 +336,26 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   const apply = useCallback((action: Action) => setHistory((h) => commit(h, action)), []);
 
+  /**
+   * Background changes from dragging around a color picker arrive many times a second.
+   * Changes within a moment of each other replace one another, so Undo goes back to the
+   * color you had before you started, not one step of the drag.
+   */
+  const lastBackgroundAt = useRef(0);
+  const applyBackground = useCallback((hex: string) => {
+    const now = Date.now();
+    const recent = now - lastBackgroundAt.current < 1200;
+    lastBackgroundAt.current = now;
+    setHistory((h) => {
+      const last = h.past[h.past.length - 1];
+      if (recent && last?.type === "background") {
+        const before = { ...h, past: h.past.slice(0, -1) };
+        return commit(before, { type: "background", color: hex });
+      }
+      return commit(h, { type: "background", color: hex });
+    });
+  }, []);
+
   const onCommit = useCallback(
     (stroke: Stroke) => {
       apply({ type: "stroke", stroke: compactStroke(stroke) });
@@ -382,12 +416,53 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   const options = brushOptions[brush];
   const template: StrokeTemplate = useMemo(
-    () => ({ brush, color, size, opacity, symmetry, options }),
-    [brush, color, size, opacity, symmetry, options],
+    () => ({ brush, color, size, opacity, symmetry, symmetryCount, options }),
+    [brush, color, size, opacity, symmetry, symmetryCount, options],
   );
 
   const setOption = (key: string, value: number) =>
     setBrushOptions((all) => ({ ...all, [brush]: { ...all[brush], [key]: value } }));
+
+  const shapeSettings = useMemo(
+    () => ({ kind: shapeKind, filled: shapeFilled, wheel: spiroWheel, hole: spiroHole }),
+    [shapeKind, shapeFilled, spiroWheel, spiroHole],
+  );
+
+  /** Fill tool: work out the area and add it as one undoable step. */
+  const onFill = (point: { x: number; y: number }) => {
+    const result = computeFill(
+      scene,
+      point.x,
+      point.y,
+      color,
+      FILL_TOLERANCE_INFO[fillTolerance].value,
+    );
+    if (result.kind === "same-color") {
+      setMessage({ text: "That area is already this color." });
+      return;
+    }
+    if (result.kind === "outside") return;
+    apply({
+      type: "stroke",
+      stroke: {
+        id: `fill-${Date.now().toString(36)}`,
+        brush: "fill",
+        color,
+        size: 1,
+        opacity,
+        symmetry: "none",
+        seed: 0,
+        points: [{ x: Math.round(point.x), y: Math.round(point.y), p: 1 }],
+        mask: result.mask,
+      },
+    });
+  };
+
+  /** Picking a brush while filling switches back to drawing. */
+  const chooseBrush = useCallback((id: BrushId) => {
+    setBrush(id);
+    setTool((t) => (t === "fill" ? "brush" : t));
+  }, []);
 
   const changeShape = (id: CanvasShapeId) => {
     const option = CANVAS_SHAPES.find((c) => c.id === id)!;
@@ -435,17 +510,22 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       } else if (!mod && !event.altKey) {
         if (key === "[") setSize(size - (size > 20 ? 4 : 1));
         else if (key === "]") setSize(size + (size >= 20 ? 4 : 1));
-        else if (key === "e") setBrush((b) => (b === "eraser" ? "pen" : "eraser"));
+        else if (key === "e") {
+          setBrush((b) => (b === "eraser" ? "pen" : "eraser"));
+          setTool("brush");
+        } else if (key === "b") setTool("brush");
+        else if (key === "u") setTool("shape");
+        else if (key === "g") setTool("fill");
         else if (/^[0-9]$/.test(key) && target.getAttribute("type") !== "range") {
           const index = key === "0" ? 9 : Number(key) - 1;
           const id = BRUSH_IDS[index];
-          if (id) setBrush(id);
+          if (id) chooseBrush(id);
         } else return;
       } else return;
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doRedo, doUndo, setSize, size, shelfOpen]);
+  }, [doRedo, doUndo, setSize, size, shelfOpen, chooseBrush]);
 
   useEffect(() => {
     if (!message) return;
@@ -461,16 +541,28 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     unavailable: "Saving is off in this browser. Download to keep a copy.",
   };
 
+  // Filled shapes and the fill tool are solid color, so the brush list steps aside.
+  const usesBrush =
+    tool === "brush" || (tool === "shape" && !(shapeFilled && SHAPE_INFO[shapeKind].canFill));
+  const toolLabel =
+    tool === "fill"
+      ? "Fill"
+      : tool === "shape"
+        ? SHAPE_INFO[shapeKind].label
+        : BRUSHES[brush].label;
+
   const brushOptionsPanel = (
     <BrushOptionsPanel brush={brush} values={options} onChange={setOption} />
   );
   const brushPicker = (
-    <BrushPicker brush={brush} color={color} options={brushOptions} onChange={setBrush} />
+    <BrushPicker brush={brush} color={color} options={brushOptions} onChange={chooseBrush} />
   );
   const symmetryPanel = (hideHeading: boolean) => (
     <SymmetryPanel
       symmetry={symmetry}
       onSymmetry={setSymmetry}
+      count={symmetryCount}
+      onCount={setSymmetryCount}
       showGuides={showGuides}
       onShowGuides={setShowGuides}
       hideHeading={hideHeading}
@@ -479,7 +571,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const backgroundPanel = (hideHeading: boolean) => (
     <BackgroundPanel
       background={scene.background}
-      onBackground={(hex) => apply({ type: "background", color: hex })}
+      onBackground={applyBackground}
       color={color}
       hideHeading={hideHeading}
     />
@@ -496,17 +588,54 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   );
   const shapeLabel = CANVAS_SHAPES.find((c) => c.id === shapeId)?.label ?? "Custom";
 
+  const canvasPanel = (part: "all" | "shape" | "pen") => (
+    <CanvasPanel
+      part={part}
+      shape={shapeId}
+      hasMarks={scene.strokes.length > 0}
+      onShape={changeShape}
+      pressureCurve={pressureCurve}
+      onPressureCurve={setPressureCurve}
+      penOnly={penOnlySetting}
+      onPenOnly={setPenOnlySetting}
+      penDetected={penDetected}
+      smoothing={smoothing}
+      onSmoothing={setSmoothing}
+    />
+  );
+
   const panels = {
     // On phones, the selected brush's options come first: no scrolling past 12 tiles.
-    brush: isPhone ? (
+    // Tool, then that tool's settings, then the brush (used by Brush and by shape outlines).
+    brush: (
       <>
-        {brushOptionsPanel}
-        {brushPicker}
-      </>
-    ) : (
-      <>
-        {brushPicker}
-        {brushOptionsPanel}
+        <ToolPicker tool={tool} onTool={setTool} />
+        {tool === "shape" && (
+          <ShapePanel
+            kind={shapeKind}
+            onKind={setShapeKind}
+            filled={shapeFilled}
+            onFilled={setShapeFilled}
+            wheel={spiroWheel}
+            onWheel={setSpiroWheel}
+            hole={spiroHole}
+            onHole={setSpiroHole}
+            compact={isPhone}
+          />
+        )}
+        {tool === "fill" && <FillPanel tolerance={fillTolerance} onTolerance={setFillTolerance} />}
+        {usesBrush &&
+          (isPhone ? (
+            <>
+              {brushOptionsPanel}
+              {brushPicker}
+            </>
+          ) : (
+            <>
+              {brushPicker}
+              {brushOptionsPanel}
+            </>
+          ))}
       </>
     ),
     color: (
@@ -526,20 +655,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         {backgroundPanel(false)}
       </>
     ),
-    canvas: (
-      <CanvasPanel
-        shape={shapeId}
-        hasMarks={scene.strokes.length > 0}
-        onShape={changeShape}
-        pressureCurve={pressureCurve}
-        onPressureCurve={setPressureCurve}
-        penOnly={penOnlySetting}
-        onPenOnly={setPenOnlySetting}
-        penDetected={penDetected}
-        smoothing={smoothing}
-        onSmoothing={setSmoothing}
-      />
-    ),
+    canvas: canvasPanel("all"),
   };
 
   const stage = (
@@ -549,6 +665,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       showGuides={showGuides}
       pressureCurve={pressureCurve}
       smoothing={smoothing}
+      tool={tool}
+      shape={shapeSettings}
+      onFill={onFill}
       showSizePreview={sizePreview}
       compact={isPhone}
       quiet={isPhone && drawerTab !== null}
@@ -679,6 +798,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             brush={brush}
             color={color}
             symmetry={symmetry}
+            symmetryCount={symmetryCount}
+            toolLabel={toolLabel}
             shape={shapeLabel}
             quickBar={sizePanel(true)}
             canUndo={canUndo(history)}
@@ -690,30 +811,47 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         </main>
       ) : (
         <main className="workspace">
-          <div className="panel panel--brushes">{panels.brush}</div>
-          {stage}
-          <div className="panel panel--settings" role="region" aria-label="Color and effects">
-            {sizePanel(false)}
-            {panels.color}
-            <Section
-              id="symmetry"
-              title="Symmetry"
-              summary={SYMMETRY_INFO[symmetry].label}
-              defaultOpen
-            >
-              {symmetryPanel(true)}
-            </Section>
-            <Section id="background" title="Background">
-              {backgroundPanel(true)}
-            </Section>
-            <Section
-              id="canvas"
-              title="Lines, pen & canvas"
-              summary={`${shapeLabel}${smoothing === "off" ? "" : " · smooth"}`}
-            >
-              {panels.canvas}
-            </Section>
+          <div className="panel panel--brushes">
+            {panels.brush}
             <ShortcutsHelp />
+          </div>
+          {stage}
+          <div className="panel panel--settings" role="region" aria-label="Brush settings">
+            {sizePanel(false)}
+            <PanelTabs
+              label="Settings"
+              tabs={[
+                {
+                  id: "color",
+                  label: "Color",
+                  summary: <span className="tab-chip" style={{ background: color }} />,
+                  content: panels.color,
+                },
+                {
+                  id: "symmetry",
+                  label: "Symmetry",
+                  summary: symmetry === "none" ? "Off" : symmetryLabel(symmetry, symmetryCount),
+                  content: symmetryPanel(false),
+                },
+                {
+                  id: "paper",
+                  label: "Paper",
+                  summary: shapeLabel,
+                  content: (
+                    <>
+                      {backgroundPanel(false)}
+                      {canvasPanel("shape")}
+                    </>
+                  ),
+                },
+                {
+                  id: "pen",
+                  label: "Pen",
+                  summary: smoothing === "off" ? "Raw" : "Smooth",
+                  content: canvasPanel("pen"),
+                },
+              ]}
+            />
           </div>
         </main>
       )}

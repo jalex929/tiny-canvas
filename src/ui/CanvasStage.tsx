@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PlacedStroke, Scene } from "../engine/history";
-import {
-  LINE_MODES,
-  LINE_MODE_INFO,
-  constrainLine,
-  linePoints,
-  type LineMode,
-} from "../engine/lines";
+import { constrainLine, linePoints } from "../engine/lines";
 import { shapePressure, smoothPressure, type PressureCurve } from "../engine/pressure";
 import { randomSeed } from "../engine/random";
 import { pullBrush, smoothingRadius, type SmoothingLevel } from "../engine/stabilizer";
@@ -17,7 +11,8 @@ import {
   paintStrokeRange,
   type RenderTarget,
 } from "../engine/render";
-import { symmetryGuides } from "../engine/symmetry";
+import { SHAPE_INFO, shapePoints, type ShapeKind } from "../engine/shapes";
+import { symmetryGuideLines } from "../engine/symmetry";
 import type { Point, Stroke } from "../engine/types";
 import {
   ensureVisible,
@@ -37,6 +32,13 @@ import { shouldIgnoreShortcut } from "./keyboard";
 
 export type StrokeTemplate = Omit<Stroke, "id" | "seed" | "points">;
 
+export interface ShapeSettings {
+  kind: ShapeKind;
+  filled: boolean;
+  wheel: number;
+  hole: number;
+}
+
 interface Props {
   scene: Scene;
   template: StrokeTemplate;
@@ -44,6 +46,11 @@ interface Props {
   pressureCurve: PressureCurve;
   /** Steadies freehand lines (lazy brush). */
   smoothing: SmoothingLevel;
+  /** What a press on the canvas does. */
+  tool: "brush" | "shape" | "fill";
+  shape: ShapeSettings;
+  /** Fill tool: fill the area at this document point. */
+  onFill: (point: { x: number; y: number }) => void;
   /** Briefly shows the true brush size in the middle of the canvas (while it changes). */
   showSizePreview: boolean;
   /** Phone layout: pinch replaces zoom buttons, and the Line button is icon-only. */
@@ -101,6 +108,8 @@ interface LiveStroke {
   liveView: View | null;
   /** Set when points were replaced rather than added (straight-line mode). */
   reset: boolean;
+  /** Shape tool: where the drag started. */
+  shapeStart?: Point;
 }
 
 const KEY_STEP = 10;
@@ -129,6 +138,9 @@ export function CanvasStage({
   showGuides,
   pressureCurve,
   smoothing,
+  tool,
+  shape,
+  onFill,
   showSizePreview,
   compact,
   quiet,
@@ -179,13 +191,12 @@ export function CanvasStage({
   const [penDown, setPenDown] = useState(false);
 
   // Straight lines: Shift (desktop), holding the Line button, or the Line button locked on.
-  const [lineMode, setLineMode] = useState<LineMode>("any");
+  // Lines go at any angle, snapping to flat, upright or 45° when close.
   const [lineLocked, setLineLocked] = useState(false);
   const [lineHeld, setLineHeld] = useState(false);
-  const [lineMenuOpen, setLineMenuOpen] = useState(false);
   const lineButtonDown = useRef<{ at: number; usedForLine: boolean } | null>(null);
-  const lineRef = useRef({ active: false, mode: lineMode });
-  lineRef.current = { active: lineLocked || lineHeld, mode: lineMode };
+  const lineRef = useRef({ active: false });
+  lineRef.current = { active: lineLocked || lineHeld };
 
   const templateRef = useRef(template);
   templateRef.current = template;
@@ -430,7 +441,11 @@ export function CanvasStage({
     return screenToDoc(viewRef.current, p.x, p.y);
   };
 
-  const begin = (point: Point, pointerId: number | "keyboard") => {
+  const begin = (
+    point: Point,
+    pointerId: number | "keyboard",
+    overrides: Partial<StrokeTemplate> = {},
+  ) => {
     liveRef.current = {
       pointerId,
       startedAt: performance.now(),
@@ -441,7 +456,13 @@ export function CanvasStage({
       painted: 0,
       liveView: null,
       reset: true,
-      stroke: { ...templateRef.current, id: newStrokeId(), seed: randomSeed(), points: [point] },
+      stroke: {
+        ...templateRef.current,
+        ...overrides,
+        id: newStrokeId(),
+        seed: randomSeed(),
+        points: [point],
+      },
     };
     requestFrame();
   };
@@ -452,7 +473,7 @@ export function CanvasStage({
     if (!live) return;
     if (straight) {
       if (lineButtonDown.current) lineButtonDown.current.usedForLine = true;
-      const end = constrainLine(live.anchor, point, lineRef.current.mode);
+      const end = constrainLine(live.anchor, point, "any");
       // Keep any freehand part drawn before the line started.
       const before = live.stroke.points.slice(0, live.anchorIndex);
       live.stroke.points = [...before, ...linePoints(live.anchor, end)];
@@ -583,7 +604,19 @@ export function CanvasStage({
       return;
     }
     event.preventDefault();
+    if (tool === "fill") {
+      onFill(toDoc(event));
+      return;
+    }
     capture(event);
+    if (tool === "shape") {
+      const start = { ...toDoc(event), p: 1 };
+      // Filled shapes are solid color; outlines use the current brush.
+      const filled = shape.filled && SHAPE_INFO[shape.kind].canFill;
+      begin(start, event.pointerId, filled ? { brush: "fill", options: {} } : {});
+      liveRef.current!.shapeStart = start;
+      return;
+    }
     begin({ ...toDoc(event), p: pressureOf(event) }, event.pointerId);
   };
 
@@ -631,6 +664,18 @@ export function CanvasStage({
 
     const live = liveRef.current;
     if (!live || live.pointerId !== event.pointerId) return;
+    if (live.shapeStart) {
+      const points = shapePoints(shape.kind, live.shapeStart, toDoc(event), {
+        square: event.shiftKey,
+        fromCenter: event.altKey,
+        wheel: shape.wheel,
+        hole: shape.hole,
+      });
+      live.stroke.points = points.length ? points : [live.shapeStart];
+      live.reset = true;
+      requestFrame();
+      return;
+    }
     if (event.shiftKey || lineRef.current.active) {
       extend({ ...toDoc(event), p: live.anchor.p }, true);
       return;
@@ -674,6 +719,11 @@ export function CanvasStage({
       setPanning(false);
     }
     const live = liveRef.current;
+    if (live?.pointerId === event.pointerId && live.shapeStart) {
+      // A tap without a drag makes no shape.
+      finish(live.stroke.points.length >= 3);
+      return;
+    }
     if (live?.pointerId === event.pointerId) {
       // Smoothing trails the pointer; finish the line where it was lifted.
       if (live.lastRaw && !event.shiftKey && !lineRef.current.active) {
@@ -766,7 +816,9 @@ export function CanvasStage({
     top: view.y + p.y * view.s,
   });
   const isEmpty = scene.strokes.length === 0;
-  const guides = showGuides ? symmetryGuides(template.symmetry) : [];
+  const guides = showGuides
+    ? symmetryGuideLines(template.symmetry, template.symmetryCount, scene.width, scene.height)
+    : [];
   const lineOn = lineLocked || lineHeld;
 
   return (
@@ -793,7 +845,7 @@ export function CanvasStage({
         ref={canvasRef}
         className={`stage__canvas ${handMode ? "is-hand" : ""} ${panning ? "is-panning" : ""} ${
           eyedropper ? "is-eyedropper" : ""
-        }`}
+        } is-tool-${tool}`}
         data-testid="drawing-canvas"
         tabIndex={0}
         role="application"
@@ -822,22 +874,15 @@ export function CanvasStage({
             height: scene.height * view.s,
           }}
         >
-          {guides.map((angle) => {
-            const r = Math.max(scene.width, scene.height);
-            const cx = scene.width / 2;
-            const cy = scene.height / 2;
-            const dx = Math.cos(angle) * r;
-            const dy = Math.sin(angle) * r;
-            return (
-              <g key={angle}>
-                <line className="guide-under" x1={cx - dx} y1={cy - dy} x2={cx + dx} y2={cy + dy} />
-                <line className="guide-over" x1={cx - dx} y1={cy - dy} x2={cx + dx} y2={cy + dy} />
-              </g>
-            );
-          })}
+          {guides.map((line, i) => (
+            <g key={i}>
+              <line className="guide-under" {...line} />
+              <line className="guide-over" {...line} />
+            </g>
+          ))}
         </svg>
       )}
-      {hover && !keyboardActive && !handMode && !panning && !eyedropper && (
+      {hover && !keyboardActive && !handMode && !panning && !eyedropper && tool !== "fill" && (
         <span
           className="stage__ring"
           aria-hidden="true"
@@ -870,12 +915,15 @@ export function CanvasStage({
         />
       )}
 
-      <div className={`line-tool ${compact ? "line-tool--compact" : ""}`} hidden={quiet}>
+      <div
+        className={`line-tool ${compact ? "line-tool--compact" : ""}`}
+        hidden={quiet || tool !== "brush"}
+      >
         <button
           type="button"
           className={`line-tool__button ${lineOn ? "is-on" : ""}`}
           aria-pressed={lineLocked}
-          aria-label={`Straight lines, ${LINE_MODE_INFO[lineMode].label}. Hold while drawing, or tap to keep on.`}
+          aria-label="Straight lines. Hold while drawing, or tap to keep on."
           title="Hold while drawing, or tap to keep on (L). With a mouse, hold Shift."
           onPointerDown={onLineDown}
           onPointerUp={onLineUp}
@@ -891,38 +939,6 @@ export function CanvasStage({
           <Icon name="line" />
           <span className="line-tool__label">{lineOn ? "Line on" : "Line"}</span>
         </button>
-        <button
-          type="button"
-          className="line-tool__mode"
-          aria-expanded={lineMenuOpen}
-          aria-controls="line-mode-menu"
-          aria-label={`Line angle: ${LINE_MODE_INFO[lineMode].label}`}
-          onClick={() => setLineMenuOpen((v) => !v)}
-        >
-          <span aria-hidden="true">{LINE_MODE_INFO[lineMode].symbol}</span>
-        </button>
-        {lineMenuOpen && (
-          <fieldset id="line-mode-menu" className="line-tool__menu">
-            <legend>Line angle</legend>
-            {LINE_MODES.map((mode) => (
-              <label key={mode} className="line-tool__option">
-                <input
-                  type="radio"
-                  name="line-mode"
-                  checked={lineMode === mode}
-                  onChange={() => {
-                    setLineMode(mode);
-                    setLineMenuOpen(false);
-                  }}
-                />
-                <span className="line-tool__symbol" aria-hidden="true">
-                  {LINE_MODE_INFO[mode].symbol}
-                </span>
-                <span>{LINE_MODE_INFO[mode].label}</span>
-              </label>
-            ))}
-          </fieldset>
-        )}
       </div>
 
       {compact ? (

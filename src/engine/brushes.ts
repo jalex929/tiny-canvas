@@ -1,5 +1,6 @@
 import { hexToHsl, hslToHex, tint } from "./color";
 import { distance, pressureScale, resample, smoothSegments, type Segment } from "./geometry";
+import { decodeRuns, type FillMask } from "./fill";
 import { createRandom } from "./random";
 import type { BrushId, Point, Stroke } from "./types";
 
@@ -563,6 +564,32 @@ export const BRUSHES: Record<BrushId, BrushDefinition> = {
       });
     },
   },
+  fill: {
+    id: "fill",
+    label: "Fill",
+    hint: "Fills an area or a shape with solid color",
+    composite: "source-over",
+    defaultSize: 1,
+    options: [],
+    // One unit: a fill-tool area (a mask) or a filled shape (a closed outline).
+    paint: ({ ctx, stroke, from, until }) => {
+      if (from > 0 || until < 1) return 1;
+      if (stroke.mask) {
+        const image = maskImage(stroke.mask, stroke.color);
+        if (image) ctx.drawImage(image, 0, 0);
+        return 1;
+      }
+      const [first, ...rest] = stroke.points;
+      if (!first || rest.length < 2) return 1;
+      ctx.fillStyle = stroke.color;
+      ctx.beginPath();
+      ctx.moveTo(first.x, first.y);
+      for (const p of rest) ctx.lineTo(p.x, p.y);
+      ctx.closePath();
+      ctx.fill();
+      return 1;
+    },
+  },
   eraser: {
     id: "eraser",
     label: "Eraser",
@@ -598,6 +625,36 @@ function variableWidthPath({ ctx, stroke, from, until }: BrushPaint, color: stri
     traceSegment(ctx, segment, true);
     ctx.stroke();
   });
+}
+
+/**
+ * A fill area as an image in its color, built once and reused: fills are redrawn on every
+ * zoom and undo, and decoding the runs each time would be wasteful.
+ */
+const maskImages = new WeakMap<FillMask, { color: string; image: CanvasImageSource }>();
+function maskImage(mask: FillMask, color: string): CanvasImageSource | null {
+  const cached = maskImages.get(mask);
+  if (cached?.color === color) return cached.image;
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = mask.width;
+  canvas.height = mask.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const pixels = ctx.createImageData(mask.width, mask.height);
+  const bits = decodeRuns(mask);
+  const n = parseInt(color.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  for (let i = 0; i < bits.length; i++) {
+    if (!bits[i]) continue;
+    pixels.data[i * 4] = r;
+    pixels.data[i * 4 + 1] = g;
+    pixels.data[i * 4 + 2] = b;
+    pixels.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(pixels, 0, 0);
+  maskImages.set(mask, { color, image: canvas });
+  return canvas;
 }
 
 /** Each point with its distance along the path, pressure, and a unit normal. */

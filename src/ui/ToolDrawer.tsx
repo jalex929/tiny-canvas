@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { BRUSHES } from "../engine/brushes";
-import { SYMMETRY_INFO } from "../engine/symmetry";
+import { symmetryLabel } from "../engine/symmetry";
 import type { BrushId, SymmetryMode } from "../engine/types";
 import { Icon, type IconName } from "./Icon";
 
@@ -14,6 +14,9 @@ interface Props {
   symmetry: SymmetryMode;
   /** Label of the current canvas shape. */
   shape: string;
+  /** What the Tools tab shows: the brush, shape or "Fill". */
+  toolLabel: string;
+  symmetryCount: number;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -24,7 +27,7 @@ interface Props {
 }
 
 const TAB_TITLES: Record<DrawerTab, string> = {
-  brush: "Brushes",
+  brush: "Tools",
   color: "Color",
   effects: "Symmetry and background",
   canvas: "Lines, pen and canvas",
@@ -56,8 +59,8 @@ export function ToolDrawer(props: Props) {
     {
       id: "brush",
       icon: "brush",
-      label: "Brush",
-      detail: BRUSHES[brush].label,
+      label: "Tools",
+      detail: props.toolLabel || BRUSHES[brush].label,
     },
     {
       id: "color",
@@ -69,7 +72,7 @@ export function ToolDrawer(props: Props) {
       id: "effects",
       icon: "sliders",
       label: "Effects",
-      detail: symmetry === "none" ? "None" : SYMMETRY_INFO[symmetry].label,
+      detail: symmetry === "none" ? "None" : symmetryLabel(symmetry, props.symmetryCount),
     },
     { id: "canvas", icon: "frame", label: "Canvas", detail: shape },
   ];

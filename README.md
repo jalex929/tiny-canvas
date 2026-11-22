@@ -1,6 +1,6 @@
 # Tiny Canvas
 
-A pocket sketchbook in the browser. Pick from twelve brushes in four groups, turn on kaleidoscope symmetry, choose
+A pocket sketchbook in the browser. Pick from eleven brushes in four groups, draw shapes and spirographs, fill areas, turn on kaleidoscope symmetry, choose
 from 40 colors or any color at all, and download your drawing as a PNG or JPG. Drawings save
 themselves in your browser, with no account needed.
 
@@ -8,9 +8,18 @@ themselves in your browser, with no account needed.
 
 ## Features
 
-- **Brushes (grouped):** _Draw_: Pen, Pencil (darker with pressure), Marker (multiplies
-  where it overlaps), Calligraphy. _Paint & glow_: Spray, Neon, Rainbow. _Playful_: Sparkle,
-  Hearts, Pattern (zigzag, waves, dots, candy stripes), Threads. _Clean up_: Eraser.
+- **Tools:** Brush, Shape and Fill (B / U / G).
+- **Brushes (grouped, in pairs):** _Draw_: Pen, Pencil (darker with pressure), Marker
+  (multiplies where it overlaps), Calligraphy. _Paint & glow_: Spray, Neon. _Playful_:
+  Sparkle, Hearts, Pattern (zigzag, waves, dots, candy stripes), Rainbow. _Clean up_: Eraser.
+  (Threads was retired from the picker; drawings that use it still render.)
+- **Shapes:** rectangle, ellipse, triangle, star, heart, as outlines in your current brush or
+  solid fills. Drag to draw; Shift keeps proportions, Alt draws from the center.
+- **Spirograph:** a wheel rolling inside a 96-tooth ring, like the toy. Pick the wheel (24–72
+  teeth; the loop count follows the gear ratio) and the pen hole, then drag out its size.
+- **Fill:** tap an area to fill it (Exact / Normal / Loose tolerance). The area is stored as a
+  run-encoded mask at document resolution, so it stays sharp at any zoom, undoes in one step
+  and saves with the drawing; it grows one pixel under line edges so no halo shows.
 - **Brush options:** nib angle (Calligraphy), density (Spray), glow (Neon), spacing and
   scatter (Sparkle, Hearts), style and scale (Pattern), web (Threads). Stored per stroke, so
   re-renders and saved drawings keep them. Tile previews update live.
@@ -27,9 +36,10 @@ themselves in your browser, with no account needed.
   Events. Full pressure = full brush size, lightest touch = 15%. Curves: Soft, Normal, Firm,
   Off; readings are smoothed. Once a stylus is detected, "Only the pen draws" (on by default)
   makes fingers pan and zoom instead of drawing (palm rejection).
-- **Effects:** symmetry off / mirror / mirror ×4 / radial ×6 / kaleidoscope ×12, each shown as a
+- **Effects:** symmetry off / mirror / mirror ×4 / radial / kaleidoscope / spiral (each copy
+  turned and shrunk) / tile (wallpaper repeat), with 2–16 copies for the turning modes, each shown as a
   picture drawn by the engine; optional guide lines on the canvas (never exported); size; opacity;
-  background color (undoable).
+  background: 12 presets or any color (picker or hex); a drag in the color picker is one undo step.
 - **Color:** 40 named swatches, native color picker, hex entry, recent colors.
 - **History:** unlimited undo/redo; Clear is undoable, with an Undo button in the toast.
 - **Saving:** autosaves to this browser (IndexedDB) about 0.7 s after each change and when the
@@ -39,6 +49,8 @@ themselves in your browser, with no account needed.
 - **Phone layout (≤900px wide):** full-screen canvas with a bottom drawer (Brush, Color,
   Effects) and Undo/Redo within thumb reach. The drawer pushes the canvas up rather than
   covering it.
+- **Desktop settings panel:** size and opacity pinned on top, then Color / Symmetry / Paper /
+  Pen tabs that each fit on a 1366 × 768 screen without scrolling (measured).
 - **Quick controls:** size/opacity always visible (top of the desktop panel; a bar above the
   phone tabs). Two-finger tap undoes, three-finger tap redoes. Eyedropper: "Pick from drawing"
   or Alt+click. Less-used settings are collapsible on desktop. See

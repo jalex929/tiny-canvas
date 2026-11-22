@@ -3,7 +3,7 @@ import { hexToHsl, hslToHex, normalizeHex, tint } from "./color";
 import { resample, smoothSegments } from "./geometry";
 import { createRandom } from "./random";
 import { drawStroke, paintStrokeRange, strokeBounds } from "./render";
-import { applyMatrix, symmetryMatrices } from "./symmetry";
+import { applyMatrix, symmetryGuideLines, symmetryMatrices } from "./symmetry";
 import { BRUSH_IDS, DOC_HEIGHT, DOC_WIDTH, SYMMETRY_MODES, type Stroke } from "./types";
 
 describe("seeded random", () => {
@@ -22,7 +22,9 @@ describe("symmetry", () => {
     symmetryMatrices(mode, DOC_WIDTH, DOC_HEIGHT);
 
   it("produces the expected number of copies, original first", () => {
-    expect(SYMMETRY_MODES.map((m) => copies(m).length)).toEqual([1, 2, 4, 6, 12]);
+    expect(SYMMETRY_MODES.map((m) => copies(m).length)).toEqual([1, 2, 4, 6, 12, 6, 25]);
+    expect(symmetryMatrices("radial", DOC_WIDTH, DOC_HEIGHT, 9)).toHaveLength(9);
+    expect(symmetryMatrices("kaleidoscope", DOC_WIDTH, DOC_HEIGHT, 3)).toHaveLength(6);
     for (const mode of SYMMETRY_MODES) {
       expect(applyMatrix(copies(mode)[0]!, 100, 200)).toEqual({ x: 100, y: 200 });
     }
@@ -128,52 +130,58 @@ const sampleStroke = (brush: Stroke["brush"], overrides: Partial<Stroke> = {}): 
 });
 
 describe("rendering", () => {
-  it.each(BRUSH_IDS)("%s brush draws something and redraws identically", (brush) => {
-    const render = () => {
-      const target = recordingContext();
-      const scratch = recordingContext();
-      drawStroke({ ctx: target.ctx, scale: 2 }, sampleStroke(brush), {
-        ctx: scratch.ctx,
-        scale: 2,
-      });
-      return [...target.calls, "|", ...scratch.calls];
-    };
-    const first = render();
-    expect(first.length).toBeGreaterThan(5);
-    expect(render()).toEqual(first);
-  });
+  it.each(BRUSH_IDS.filter((b) => b !== "fill"))(
+    "%s brush draws something and redraws identically",
+    (brush) => {
+      const render = () => {
+        const target = recordingContext();
+        const scratch = recordingContext();
+        drawStroke({ ctx: target.ctx, scale: 2 }, sampleStroke(brush), {
+          ctx: scratch.ctx,
+          scale: 2,
+        });
+        return [...target.calls, "|", ...scratch.calls];
+      };
+      const first = render();
+      expect(first.length).toBeGreaterThan(5);
+      expect(render()).toEqual(first);
+    },
+  );
 
-  it.each(BRUSH_IDS)("%s brush painted in pieces matches painting it all at once", (brush) => {
-    // Strip style settings; compare only what gets drawn, in order.
-    const shapes = (calls: string[]) =>
-      calls.filter((c) =>
-        /^(moveTo|lineTo|quadraticCurveTo|bezierCurveTo|arc|fillRect|translate|rotate|scale)\(/.test(
-          c,
-        ),
-      );
-    const frame = { dx: 0, dy: 0, width: DOC_WIDTH, height: DOC_HEIGHT };
-    const stroke = sampleStroke(brush, {
-      points: Array.from({ length: 40 }, (_, i) => ({
-        x: 100 + i * 9,
-        y: 200 + Math.sin(i / 4) * 50,
-        p: 0.5 + (i % 5) / 10,
-      })),
-    });
-    const whole = recordingContext();
-    const units = paintStrokeRange({ ctx: whole.ctx, scale: 1 }, stroke, frame, 0, Infinity);
-    const pieces = recordingContext();
-    const cut1 = Math.floor(units / 3);
-    const cut2 = Math.floor((units * 2) / 3);
-    for (const [from, until] of [
-      [0, cut1],
-      [cut1, cut2],
-      [cut2, Infinity],
-    ] as const) {
-      paintStrokeRange({ ctx: pieces.ctx, scale: 1 }, stroke, frame, from, until);
-    }
-    expect(units).toBeGreaterThan(3);
-    expect(shapes(pieces.calls)).toEqual(shapes(whole.calls));
-  });
+  it.each(BRUSH_IDS.filter((b) => b !== "fill"))(
+    "%s brush painted in pieces matches painting it all at once",
+    (brush) => {
+      // Strip style settings; compare only what gets drawn, in order.
+      const shapes = (calls: string[]) =>
+        calls.filter((c) =>
+          /^(moveTo|lineTo|quadraticCurveTo|bezierCurveTo|arc|fillRect|translate|rotate|scale)\(/.test(
+            c,
+          ),
+        );
+      const frame = { dx: 0, dy: 0, width: DOC_WIDTH, height: DOC_HEIGHT };
+      const stroke = sampleStroke(brush, {
+        points: Array.from({ length: 40 }, (_, i) => ({
+          x: 100 + i * 9,
+          y: 200 + Math.sin(i / 4) * 50,
+          p: 0.5 + (i % 5) / 10,
+        })),
+      });
+      const whole = recordingContext();
+      const units = paintStrokeRange({ ctx: whole.ctx, scale: 1 }, stroke, frame, 0, Infinity);
+      const pieces = recordingContext();
+      const cut1 = Math.floor(units / 3);
+      const cut2 = Math.floor((units * 2) / 3);
+      for (const [from, until] of [
+        [0, cut1],
+        [cut1, cut2],
+        [cut2, Infinity],
+      ] as const) {
+        paintStrokeRange({ ctx: pieces.ctx, scale: 1 }, stroke, frame, from, until);
+      }
+      expect(units).toBeGreaterThan(3);
+      expect(shapes(pieces.calls)).toEqual(shapes(whole.calls));
+    },
+  );
 
   it("composites see-through strokes once, so overlaps don't darken", () => {
     const target = recordingContext();
@@ -220,5 +228,48 @@ describe("rendering", () => {
     expect(box.x).toBeLessThanOrEqual(100);
     expect(box.x + box.w).toBeGreaterThanOrEqual(DOC_WIDTH - 100);
     expect(box.x + box.w).toBeLessThanOrEqual(DOC_WIDTH);
+  });
+});
+
+describe("new symmetry modes", () => {
+  it("spiral copies shrink toward the center", () => {
+    const [, second, third] = symmetryMatrices("spiral", DOC_WIDTH, DOC_HEIGHT, 6);
+    const cx = DOC_WIDTH / 2;
+    const cy = DOC_HEIGHT / 2;
+    const dist = (m: typeof second) => {
+      const p = applyMatrix(m!, cx + 400, cy);
+      return Math.hypot(p.x - cx, p.y - cy);
+    };
+    expect(dist(second)).toBeCloseTo(400 * 0.86);
+    expect(dist(third)).toBeCloseTo(400 * 0.86 * 0.86);
+  });
+
+  it("tile repeats a mark across the whole canvas", () => {
+    const copies = symmetryMatrices("tile", 1500, 1200).map((m) => applyMatrix(m, 100, 100));
+    expect(copies).toContainEqual({ x: 600, y: 500 });
+    expect(copies).toContainEqual({ x: 1100, y: 900 });
+  });
+
+  it("guides match the mode", () => {
+    expect(symmetryGuideLines("radial", 8, 1600, 1200)).toHaveLength(8);
+    expect(symmetryGuideLines("tile", 6, 1500, 1200)).toHaveLength(4);
+    expect(symmetryGuideLines("none", 6, 1600, 1200)).toEqual([]);
+  });
+
+  it("fill brush fills a closed outline in one unit", () => {
+    const target = recordingContext();
+    drawStroke(
+      { ctx: target.ctx, scale: 1 },
+      sampleStroke("fill", {
+        points: [
+          { x: 0, y: 0, p: 1 },
+          { x: 100, y: 0, p: 1 },
+          { x: 50, y: 80, p: 1 },
+        ],
+      }),
+      { ctx: recordingContext().ctx, scale: 1 },
+    );
+    expect(target.calls).toContain("closePath()");
+    expect(target.calls).toContain("fill()");
   });
 });

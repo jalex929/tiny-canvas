@@ -152,13 +152,13 @@ test("phone drawer: starts portrait; pick hearts and a symmetry, then draw", asy
 }) => {
   test.skip(!isMobile, "phone only");
   await expect(page.getByRole("button", { name: /^Canvas/ })).toContainText("Portrait");
-  await page.getByRole("button", { name: /^Brush/ }).click();
+  await page.getByRole("button", { name: /^Tools/ }).click();
   await page.getByRole("radio", { name: "Hearts" }).check();
   await page.getByRole("button", { name: /Effects/ }).click();
   await page.getByRole("radio", { name: "Mirror ×4" }).check();
   await expect(page.getByRole("button", { name: /Effects/ })).toContainText("Mirror ×4");
   await page.getByRole("button", { name: "Close tools" }).click();
-  await expect(page.getByRole("button", { name: /Brush/ })).toContainText("Hearts");
+  await expect(page.getByRole("button", { name: /^Tools/ })).toContainText("Hearts");
   const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
   await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.4);
   await expect.poll(() => inkedPixels(page)).toBeGreaterThan(200);
@@ -185,36 +185,32 @@ async function inkBounds(page: Page) {
   });
 }
 
-test("Shift draws a straight line, and the Line button locks it to an angle", async ({
+test("Shift draws a straight line, and the Line button locks straight lines on", async ({
   page,
   isMobile,
 }) => {
   test.skip(isMobile, "desktop");
   const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
-  const wobble = async () => {
+  // A zigzag that ends level with where it started: straight-line mode turns it flat.
+  const zigzag = async () => {
     await page.mouse.move(box.x + 250, box.y + 300);
     await page.mouse.down();
     for (let i = 1; i <= 12; i++) {
-      await page.mouse.move(box.x + 250 + i * 30, box.y + 300 + (i % 2 ? 40 : -40));
+      await page.mouse.move(box.x + 250 + i * 30, box.y + 300 + (i === 12 ? 0 : i % 2 ? 40 : -40));
     }
     await page.mouse.up();
   };
 
-  // Horizontal lock via the Line button menu: a zigzag becomes a flat line.
-  await page.getByRole("button", { name: /Line angle/ }).click();
-  await page.getByRole("radio", { name: "Horizontal" }).click(); // picking closes the menu
-  await expect(page.getByRole("button", { name: "Line angle: Horizontal" })).toBeVisible();
-  await page.keyboard.press("l");
-  await wobble();
-  const flat = await inkBounds(page);
-  expect(flat.height).toBeLessThan(30); // just the pen width, no zigzag
+  await page.keyboard.press("l"); // lock straight lines on
+  await zigzag();
+  expect((await inkBounds(page)).height).toBeLessThan(30); // just the pen width
   await page.keyboard.press("l");
 
   await page.getByRole("button", { name: "Undo" }).click();
   await page.keyboard.down("Shift");
-  await wobble();
+  await zigzag();
   await page.keyboard.up("Shift");
-  await expect.poll(() => inkedPixels(page)).toBeGreaterThan(300);
+  expect((await inkBounds(page)).height).toBeLessThan(30);
 });
 
 test("canvas shape can change, keeps the drawing, and can be undone", async ({
@@ -222,9 +218,9 @@ test("canvas shape can change, keeps the drawing, and can be undone", async ({
   isMobile,
 }) => {
   test.skip(isMobile, "desktop");
-  // Less-used settings live in collapsible sections; the closed section shows the value.
-  await expect(page.getByText("Lines, pen & canvas")).toBeVisible();
-  await page.getByText("Lines, pen & canvas").click();
+  // Settings are in tabs; the Paper tab shows the current shape even before opening it.
+  await expect(page.getByRole("tab", { name: /Paper/ })).toContainText("Landscape");
+  await page.getByRole("tab", { name: /Paper/ }).click();
   await expect(page.getByRole("radio", { name: "Landscape, 4:3" })).toBeChecked();
   await drawSquiggle(page);
   await page.getByRole("radio", { name: "Square, 1:1" }).check();
@@ -306,4 +302,71 @@ test("size ring shows the real brush size, and recent colors survive a reload", 
   await page.reload();
   await expect(page.getByRole("button", { name: "Use Grape" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Use Teal" })).toBeVisible();
+});
+
+test("shapes, spirograph and the fill tool", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop");
+  const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
+  const drag = async (x1: number, y1: number, x2: number, y2: number) => {
+    await page.mouse.move(box.x + x1, box.y + y1);
+    await page.mouse.down();
+    await page.mouse.move(box.x + x2, box.y + y2, { steps: 8 });
+    await page.mouse.up();
+  };
+
+  // A tap with the shape tool draws nothing; a drag draws the outline.
+  await page.keyboard.press("u");
+  await page.getByRole("radio", { name: "Rectangle" }).check();
+  await page.mouse.click(box.x + 300, box.y + 300);
+  await expect(page.getByRole("button", { name: "Clear" })).toBeDisabled();
+  await drag(150, 150, 350, 300);
+  const outline = await inkedPixels(page);
+  expect(outline).toBeGreaterThan(300);
+
+  // Filling inside the rectangle covers far more than its outline did.
+  await page.keyboard.press("g");
+  await page.getByRole("radio", { name: "Lab yellow" }).check();
+  await page.mouse.click(box.x + 250, box.y + 225);
+  await expect.poll(() => inkedPixels(page)).toBeGreaterThan(outline * 5);
+  // Filling it again with the same color changes nothing and says so.
+  await page.mouse.click(box.x + 250, box.y + 225);
+  await expect(page.getByText("That area is already this color.")).toBeVisible();
+
+  // Spirograph shows its loop count and draws.
+  await page.keyboard.press("u");
+  await page.getByRole("radio", { name: "Spirograph" }).check();
+  await page.getByRole("radio", { name: /30-tooth wheel, 16 loops/ }).check();
+  await expect(page.getByText("16 loops")).toBeVisible();
+  const before = await inkedPixels(page);
+  await drag(420, 120, 640, 340);
+  await expect.poll(() => inkedPixels(page)).toBeGreaterThan(before + 500);
+});
+
+test("symmetry copies are adjustable", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop");
+  await page.getByRole("tab", { name: /Symmetry/ }).click();
+  await page.getByRole("radio", { name: "Radial" }).check();
+  const copies = page.getByRole("slider", { name: /^Copies/ });
+  await copies.fill("9");
+  await expect(page.getByText("Radial ×9").first()).toBeVisible();
+  await page.getByRole("radio", { name: "Tile" }).check();
+  await expect(copies).toBeHidden();
+});
+
+test("background can be any color, and a picker drag is one undo step", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop");
+  await page.getByRole("tab", { name: /Paper/ }).click();
+  const hex = page.getByLabel("Background hex color code");
+  for (const value of ["#ff00aa", "#ff22bb", "#ff44cc"]) {
+    await hex.fill(value);
+    await hex.press("Enter");
+  }
+  const paper = page.locator(".stage__paper");
+  await expect(paper).toHaveCSS("background-color", "rgb(255, 68, 204)");
+  // Three quick changes count as one step, so one Undo goes back to white.
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(paper).toHaveCSS("background-color", "rgb(255, 255, 255)");
 });

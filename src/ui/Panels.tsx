@@ -3,7 +3,21 @@ import { BRUSHES } from "../engine/brushes";
 import { normalizeHex } from "../engine/color";
 import { PRESSURE_CURVES, PRESSURE_INFO, type PressureCurve } from "../engine/pressure";
 import { SMOOTHING_INFO, SMOOTHING_LEVELS, type SmoothingLevel } from "../engine/stabilizer";
-import { SYMMETRY_INFO } from "../engine/symmetry";
+import { FILL_TOLERANCES, FILL_TOLERANCE_INFO, type FillTolerance } from "../engine/fill";
+import {
+  SHAPE_INFO,
+  SHAPE_KINDS,
+  SPIRO_WHEELS,
+  shapePoints,
+  spiroLoops,
+  type ShapeKind,
+} from "../engine/shapes";
+import {
+  MAX_SYMMETRY_COUNT,
+  MIN_SYMMETRY_COUNT,
+  SYMMETRY_INFO,
+  symmetryLabel,
+} from "../engine/symmetry";
 import {
   BRUSH_GROUPS,
   BRUSH_IDS,
@@ -152,6 +166,203 @@ export function BrushOptionsPanel({
   );
 }
 
+export type Tool = "brush" | "shape" | "fill";
+
+const TOOLS: { id: Tool; label: string; icon: "brush" | "shapes" | "bucket"; key: string }[] = [
+  { id: "brush", label: "Brush", icon: "brush", key: "B" },
+  { id: "shape", label: "Shape", icon: "shapes", key: "U" },
+  { id: "fill", label: "Fill", icon: "bucket", key: "G" },
+];
+
+/** Brush / Shape / Fill. */
+export function ToolPicker({ tool, onTool }: { tool: Tool; onTool: (tool: Tool) => void }) {
+  return (
+    <fieldset className="tool-picker">
+      <legend className="panel__heading">Tool</legend>
+      <div className="tool-picker__row">
+        {TOOLS.map((t) => (
+          <label key={t.id} className="tool-picker__option" title={`${t.label} (${t.key})`}>
+            <input
+              type="radio"
+              name="tool"
+              checked={tool === t.id}
+              onChange={() => onTool(t.id)}
+              aria-label={t.label}
+            />
+            <span>
+              <Icon name={t.icon} />
+              {t.label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/** A shape's outline drawn by the same code that draws it on the canvas. */
+function ShapeIcon({ kind }: { kind: ShapeKind }) {
+  const points = shapePoints(kind, { x: 3, y: 3 }, { x: 29, y: 29 }, { wheel: 52, hole: 0.75 });
+  const d = points.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("");
+  return (
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" className="shape-icon">
+      <path
+        d={d}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={kind === "spirograph" ? 0.6 : 2}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ShapePanel({
+  kind,
+  onKind,
+  filled,
+  onFilled,
+  wheel,
+  onWheel,
+  hole,
+  onHole,
+  compact,
+}: {
+  kind: ShapeKind;
+  onKind: (kind: ShapeKind) => void;
+  filled: boolean;
+  onFilled: (filled: boolean) => void;
+  wheel: number;
+  onWheel: (teeth: number) => void;
+  hole: number;
+  onHole: (value: number) => void;
+  /** Phones: no keyboard hints. */
+  compact: boolean;
+}) {
+  const canFill = SHAPE_INFO[kind].canFill;
+  return (
+    <div className="control shape-panel">
+      <fieldset className="choice-row">
+        <legend className="panel__heading">Shape</legend>
+        <div className="shape-kinds">
+          {SHAPE_KINDS.map((k) => (
+            <label key={k} className="shape-kind" title={SHAPE_INFO[k].label}>
+              <input
+                type="radio"
+                name="shape-kind"
+                checked={kind === k}
+                onChange={() => onKind(k)}
+                aria-label={SHAPE_INFO[k].label}
+              />
+              <span>
+                <ShapeIcon kind={k} />
+                <small>{SHAPE_INFO[k].label}</small>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {canFill ? (
+        <fieldset className="choice-row">
+          <legend>Style</legend>
+          <div className="chips">
+            {(
+              [
+                [false, "Outline (uses your brush)"],
+                [true, "Filled"],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={label} className="chip">
+                <input
+                  type="radio"
+                  name="shape-style"
+                  checked={filled === value}
+                  onChange={() => onFilled(value)}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : (
+        <>
+          <fieldset className="choice-row">
+            <legend>
+              Wheel <span className="choice-row__note">{spiroLoops(wheel)} loops</span>
+            </legend>
+            <div className="chips chips--tight">
+              {SPIRO_WHEELS.map((teeth) => (
+                <label key={teeth} className="chip">
+                  <input
+                    type="radio"
+                    name="spiro-wheel"
+                    checked={wheel === teeth}
+                    onChange={() => onWheel(teeth)}
+                    aria-label={`${teeth}-tooth wheel, ${spiroLoops(teeth)} loops`}
+                  />
+                  <span>{teeth}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <label className="slider">
+            <span className="slider__label">
+              Pen hole <span className="slider__value">{Math.round(hole * 100)}%</span>
+            </span>
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={hole}
+              onChange={(e) => onHole(Number(e.target.value))}
+            />
+          </label>
+        </>
+      )}
+      <p className="control__note">
+        {compact
+          ? "Drag on the canvas to draw the shape."
+          : "Drag on the canvas. Shift keeps proportions; Alt draws from the center."}
+      </p>
+    </div>
+  );
+}
+
+export function FillPanel({
+  tolerance,
+  onTolerance,
+}: {
+  tolerance: FillTolerance;
+  onTolerance: (value: FillTolerance) => void;
+}) {
+  return (
+    <fieldset className="control">
+      <legend className="panel__heading">Fill</legend>
+      <p className="control__note control__note--top">
+        Tap an area to fill it with your color. Fills stay inside your lines.
+      </p>
+      <div className="chips">
+        {FILL_TOLERANCES.map((t) => (
+          <label key={t} className="chip">
+            <input
+              type="radio"
+              name="fill-tolerance"
+              checked={tolerance === t}
+              onChange={() => onTolerance(t)}
+            />
+            <span>{FILL_TOLERANCE_INFO[t].label}</span>
+          </label>
+        ))}
+      </div>
+      <p className="control__note">
+        Exact fills only the same color. Loose also fills soft edges and similar colors.
+      </p>
+    </fieldset>
+  );
+}
+
 /** Canvas shape, plus stylus settings. */
 export function CanvasPanel({
   shape,
@@ -164,7 +375,10 @@ export function CanvasPanel({
   penDetected,
   smoothing,
   onSmoothing,
+  part = "all",
 }: {
+  /** Which settings to show: everything (phone), the canvas shape, or pen and lines. */
+  part?: "all" | "shape" | "pen";
   smoothing: SmoothingLevel;
   onSmoothing: (level: SmoothingLevel) => void;
   shape: CanvasShapeId | null;
@@ -178,96 +392,111 @@ export function CanvasPanel({
 }) {
   return (
     <>
-      <fieldset className="control">
-        <legend className="panel__heading">Smoothing</legend>
-        <p className="control__note control__note--top">
-          Steadies shaky lines. Stronger feels calmer but trails your finger a little.
-        </p>
-        <div className="chips">
-          {SMOOTHING_LEVELS.map((level) => (
-            <label key={level} className="chip">
-              <input
-                type="radio"
-                name="smoothing"
-                checked={smoothing === level}
-                onChange={() => onSmoothing(level)}
-              />
-              <span>{SMOOTHING_INFO[level].label}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="control">
-        <legend className="panel__heading">Canvas shape</legend>
-        <div className="shape-grid">
-          {CANVAS_SHAPES.map((option) => {
-            const { width, height } = option.size;
-            const long = Math.max(width, height);
-            return (
-              <label key={option.id} className="shape-tile">
-                <input
-                  type="radio"
-                  name="canvas-shape"
-                  checked={shape === option.id}
-                  onChange={() => onShape(option.id)}
-                  aria-label={`${option.label}, ${option.ratio}`}
-                />
-                <span className="shape-tile__body">
-                  <span className="shape-tile__frame" aria-hidden="true">
-                    <span
-                      style={{
-                        width: `${(width / long) * 100}%`,
-                        height: `${(height / long) * 100}%`,
-                      }}
+      {part !== "shape" && (
+        <>
+          <fieldset className="control">
+            <legend className="panel__heading">Smoothing</legend>
+            <p className="control__note control__note--top">
+              Steadies shaky lines. Stronger feels calmer but trails your finger a little.
+            </p>
+            <div className="chips">
+              {SMOOTHING_LEVELS.map((level) => (
+                <label key={level} className="chip">
+                  <input
+                    type="radio"
+                    name="smoothing"
+                    checked={smoothing === level}
+                    onChange={() => onSmoothing(level)}
+                  />
+                  <span>{SMOOTHING_INFO[level].label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </>
+      )}
+      {part !== "pen" && (
+        <>
+          <fieldset className="control">
+            <legend className="panel__heading">Canvas shape</legend>
+            <div className="shape-grid">
+              {CANVAS_SHAPES.map((option) => {
+                const { width, height } = option.size;
+                const long = Math.max(width, height);
+                return (
+                  <label key={option.id} className="shape-tile">
+                    <input
+                      type="radio"
+                      name="canvas-shape"
+                      checked={shape === option.id}
+                      onChange={() => onShape(option.id)}
+                      aria-label={`${option.label}, ${option.ratio}`}
                     />
+                    <span className="shape-tile__body">
+                      <span className="shape-tile__frame" aria-hidden="true">
+                        <span
+                          style={{
+                            width: `${(width / long) * 100}%`,
+                            height: `${(height / long) * 100}%`,
+                          }}
+                        />
+                      </span>
+                      <span className="shape-tile__label">{option.label}</span>
+                      <span className="shape-tile__ratio">{option.ratio}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {hasMarks && (
+              <p className="control__note">
+                Changing shape keeps your drawing centered. Edges may be trimmed; Undo brings them
+                back.
+              </p>
+            )}
+          </fieldset>
+        </>
+      )}
+      {part !== "shape" && (
+        <>
+          <fieldset className="control">
+            <legend className="panel__heading">Pen pressure</legend>
+            <p className="control__note control__note--top">
+              {penDetected
+                ? "✓ Stylus detected. Light pressure draws thin, firm pressure draws full size."
+                : "For styluses like Apple Pencil, Surface Pen and Wacom. Mouse and finger always draw full size."}
+            </p>
+            <div className="chips">
+              {PRESSURE_CURVES.map((curve) => (
+                <label key={curve} className="chip" title={PRESSURE_INFO[curve].hint}>
+                  <input
+                    type="radio"
+                    name="pressure-curve"
+                    checked={pressureCurve === curve}
+                    onChange={() => onPressureCurve(curve)}
+                    aria-describedby={`pressure-hint-${curve}`}
+                  />
+                  <span>{PRESSURE_INFO[curve].label}</span>
+                  <span id={`pressure-hint-${curve}`} className="visually-hidden">
+                    {PRESSURE_INFO[curve].hint}
                   </span>
-                  <span className="shape-tile__label">{option.label}</span>
-                  <span className="shape-tile__ratio">{option.ratio}</span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        {hasMarks && (
-          <p className="control__note">
-            Changing shape keeps your drawing centered. Edges may be trimmed; Undo brings them back.
-          </p>
-        )}
-      </fieldset>
-
-      <fieldset className="control">
-        <legend className="panel__heading">Pen pressure</legend>
-        <p className="control__note control__note--top">
-          {penDetected
-            ? "✓ Stylus detected. Light pressure draws thin, firm pressure draws full size."
-            : "For styluses like Apple Pencil, Surface Pen and Wacom. Mouse and finger always draw full size."}
-        </p>
-        <div className="chips">
-          {PRESSURE_CURVES.map((curve) => (
-            <label key={curve} className="chip" title={PRESSURE_INFO[curve].hint}>
+                </label>
+              ))}
+            </div>
+            <label className="check check--spaced">
               <input
-                type="radio"
-                name="pressure-curve"
-                checked={pressureCurve === curve}
-                onChange={() => onPressureCurve(curve)}
-                aria-describedby={`pressure-hint-${curve}`}
+                type="checkbox"
+                checked={penOnly}
+                onChange={(e) => onPenOnly(e.target.checked)}
               />
-              <span>{PRESSURE_INFO[curve].label}</span>
-              <span id={`pressure-hint-${curve}`} className="visually-hidden">
-                {PRESSURE_INFO[curve].hint}
+              <span>
+                Only the pen draws
+                <small> Fingers move and zoom, so your palm won&apos;t leave marks.</small>
               </span>
             </label>
-          ))}
-        </div>
-        <label className="check check--spaced">
-          <input type="checkbox" checked={penOnly} onChange={(e) => onPenOnly(e.target.checked)} />
-          <span>
-            Only the pen draws
-            <small> Fingers move and zoom, so your palm won&apos;t leave marks.</small>
-          </span>
-        </label>
-      </fieldset>
+          </fieldset>
+        </>
+      )}
     </>
   );
 }
@@ -440,12 +669,16 @@ export function SizePanel({
 export function SymmetryPanel({
   symmetry,
   onSymmetry,
+  count,
+  onCount,
   showGuides,
   onShowGuides,
   hideHeading = false,
 }: {
   symmetry: SymmetryMode;
   onSymmetry: (mode: SymmetryMode) => void;
+  count: number;
+  onCount: (value: number) => void;
   showGuides: boolean;
   onShowGuides: (value: boolean) => void;
   hideHeading?: boolean;
@@ -466,8 +699,10 @@ export function SymmetryPanel({
               aria-describedby={`symmetry-hint-${mode}`}
             />
             <span className="symmetry-tile__body">
-              <SymmetryPreview mode={mode} ink="#000052" />
-              <span className="symmetry-tile__label">{SYMMETRY_INFO[mode].label}</span>
+              <SymmetryPreview mode={mode} ink="#000052" count={count} />
+              <span className="symmetry-tile__label">
+                {SYMMETRY_INFO[mode].short ?? SYMMETRY_INFO[mode].label}
+              </span>
             </span>
             <span id={`symmetry-hint-${mode}`} className="visually-hidden">
               {SYMMETRY_INFO[mode].description}
@@ -475,6 +710,20 @@ export function SymmetryPanel({
           </label>
         ))}
       </div>
+      {SYMMETRY_INFO[symmetry].usesCount && (
+        <label className="slider slider--spaced">
+          <span className="slider__label">
+            Copies <span className="slider__value">{symmetryLabel(symmetry, count)}</span>
+          </span>
+          <input
+            type="range"
+            min={MIN_SYMMETRY_COUNT}
+            max={MAX_SYMMETRY_COUNT}
+            value={count}
+            onChange={(e) => onCount(Number(e.target.value))}
+          />
+        </label>
+      )}
       <label className="check check--spaced">
         <input
           type="checkbox"
@@ -502,27 +751,74 @@ export function BackgroundPanel({
   color: string;
   hideHeading?: boolean;
 }) {
+  const [draft, setDraft] = useState(background);
+  // Keep the hex field in step when the background changes elsewhere (undo, presets).
+  if (normalizeHex(draft) !== background && document.activeElement?.id !== "bg-hex") {
+    setDraft(background);
+  }
   return (
     <div className="control">
       <h2 className={hideHeading ? "visually-hidden" : "panel__heading"} id="bg-heading">
         Background
       </h2>
-      <div className="bg-row" role="group" aria-labelledby="bg-heading">
+      <div className="bg-grid" role="group" aria-labelledby="bg-heading">
         {BACKGROUNDS.map((bg) => (
           <button
             key={bg.hex}
             type="button"
             className="bg-chip"
             style={{ background: bg.hex }}
+            title={bg.name}
             aria-label={`${bg.name} background`}
             aria-pressed={background === bg.hex}
             onClick={() => onBackground(bg.hex)}
           />
         ))}
-        <button type="button" className="button button--small" onClick={() => onBackground(color)}>
-          Use brush color
-        </button>
       </div>
+      <div className="custom-color">
+        <label className="picker">
+          <input
+            type="color"
+            value={background}
+            onChange={(e) => onBackground(e.target.value)}
+            aria-label="Choose any background color"
+          />
+          <span>Any color</span>
+        </label>
+        <form
+          className="hex-field"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const hex = normalizeHex(draft);
+            if (hex) onBackground(hex);
+          }}
+        >
+          <label htmlFor="bg-hex" className="visually-hidden">
+            Background hex color code
+          </label>
+          <input
+            id="bg-hex"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              const hex = normalizeHex(draft);
+              if (hex) onBackground(hex);
+              else setDraft(background);
+            }}
+            aria-invalid={normalizeHex(draft) === null}
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </form>
+      </div>
+      <button
+        type="button"
+        className="button button--small bg-use-brush"
+        onClick={() => onBackground(color)}
+      >
+        <span className="bg-use-brush__chip" style={{ background: color }} aria-hidden="true" />
+        Use brush color
+      </button>
     </div>
   );
 }
@@ -583,7 +879,7 @@ export function ShortcutsHelp() {
       <summary>Keyboard shortcuts</summary>
       <dl>
         <dt>1–9, 0</dt>
-        <dd>Choose a brush (Pen to Pattern)</dd>
+        <dd>Choose a brush (Pen to Rainbow)</dd>
         <dt>E</dt>
         <dd>Eraser on and off</dd>
         <dt>[ and ]</dt>

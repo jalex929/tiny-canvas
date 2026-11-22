@@ -57,7 +57,8 @@ describe("App", () => {
     await userEvent.keyboard("5");
     expect(screen.getByRole("radio", { name: "Spray" })).toBeChecked();
     await userEvent.keyboard("0");
-    expect(screen.getByRole("radio", { name: "Pattern" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Rainbow" })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "Threads" })).toBeNull();
     await userEvent.keyboard("e");
     expect(screen.getByRole("radio", { name: "Eraser" })).toBeChecked();
     await userEvent.keyboard("e");

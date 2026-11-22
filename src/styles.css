@@ -2141,3 +2141,301 @@ input[type="range"] {
 .app--phone .save-status {
   grid-column: 1 / -1;
 }
+
+/* ---------- Tools: Brush / Shape / Fill ---------- */
+
+.tool-picker {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.tool-picker__row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--navy-08);
+}
+
+.tool-picker__option {
+  position: relative;
+}
+
+.tool-picker__option input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tool-picker__option > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tool-picker__option input:checked + span {
+  background: var(--white);
+  box-shadow:
+    0 0 0 2px var(--navy),
+    0 4px 10px -6px rgb(0 0 82 / 0.5);
+}
+
+.tool-picker__option input:focus-visible + span {
+  box-shadow: var(--focus);
+}
+
+.shape-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.shape-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.shape-kind {
+  position: relative;
+}
+
+.shape-kind input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.shape-kind > span {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 2px 6px;
+  border: 1.5px solid var(--navy-15);
+  border-radius: var(--radius-small);
+  background: var(--white);
+}
+
+.shape-kind small {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.shape-kind:hover > span {
+  border-color: var(--navy-60);
+}
+
+.shape-kind input:checked + span {
+  border: 2px solid var(--navy);
+  background: var(--yellow-soft);
+  padding: 7.5px 1.5px 5.5px;
+}
+
+.shape-kind input:focus-visible + span {
+  box-shadow: var(--focus);
+}
+
+.choice-row__note {
+  font-weight: 400;
+  color: var(--navy-60);
+  margin-left: 6px;
+}
+
+.chips--tight .chip span {
+  min-height: 30px;
+  padding: 0 9px;
+  font-family: var(--font-mono);
+}
+
+.slider--spaced {
+  margin-top: 12px;
+}
+
+.symmetry-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.panel--settings .symmetry-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stage__canvas.is-tool-shape {
+  cursor: crosshair;
+}
+
+.stage__canvas.is-tool-fill {
+  cursor: cell;
+}
+
+.drawer__sheet .shape-kinds {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 420px) {
+  .drawer__sheet .shape-kinds {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* The Line button stands alone now (no angle menu). */
+.line-tool__button {
+  border-radius: 999px;
+}
+
+/* ---------- Tabbed settings panel (desktop) ---------- */
+
+.panel--settings {
+  display: flex;
+  flex-direction: column;
+  padding-top: 14px;
+}
+
+.panel--settings > .size-panel {
+  flex: none;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--navy-08);
+}
+
+.panel-tabs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 12px;
+}
+
+.panel-tabs__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--navy-08);
+}
+
+.panel-tabs__tab {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.panel-tabs__label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.panel-tabs__summary {
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--navy-60);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-tabs__tab[aria-selected="true"] {
+  background: var(--white);
+  box-shadow:
+    0 0 0 2px var(--navy),
+    0 4px 10px -6px rgb(0 0 82 / 0.5);
+}
+
+.panel-tabs__tab:hover:not([aria-selected="true"]) {
+  background: rgb(255 255 255 / 0.6);
+}
+
+.panel-tabs__panel {
+  padding-top: 14px;
+  border-radius: 4px;
+}
+
+.panel-tabs__panel > .control:first-child,
+.panel-tabs__panel > fieldset.control:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.tab-chip {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 82 / 0.3);
+}
+
+/* Symmetry in four columns so all seven fit in two rows. */
+.panel--settings .symmetry-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.panel--settings .symmetry-tile__label {
+  font-size: 10.5px;
+}
+
+.panel--settings .symmetry-tile__body {
+  padding: 4px 2px;
+}
+
+/* ---------- Backgrounds ---------- */
+
+.bg-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bg-grid .bg-chip {
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.bg-use-brush {
+  margin-top: 10px;
+}
+
+.bg-use-brush__chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 82 / 0.3);
+}
+
+/* Four settings tabs. */
+.panel-tabs__list {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.panel-tabs__label {
+  font-size: 12px;
+}
+
+/* The phone sheet is already titled "Tools". */
+.drawer__sheet .tool-picker legend {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}

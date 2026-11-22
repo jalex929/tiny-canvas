@@ -48,7 +48,12 @@ export function drawStroke(
   frame: StrokeFrame = DEFAULT_FRAME,
 ): void {
   const brush = BRUSHES[stroke.brush];
-  const matrices = symmetryMatrices(stroke.symmetry, frame.width, frame.height);
+  const matrices = symmetryMatrices(
+    stroke.symmetry,
+    frame.width,
+    frame.height,
+    stroke.symmetryCount,
+  );
   const target = shifted(baseTarget, frame);
   const scratch = shifted(baseScratch, frame);
   const alpha = stroke.opacity * (brush.strokeAlpha ?? 1);
@@ -143,7 +148,12 @@ export function paintStrokeRange(
   from: number,
   until: number,
 ): number {
-  const matrices = symmetryMatrices(stroke.symmetry, frame.width, frame.height);
+  const matrices = symmetryMatrices(
+    stroke.symmetry,
+    frame.width,
+    frame.height,
+    stroke.symmetryCount,
+  );
   target.ctx.save();
   target.ctx.globalCompositeOperation = "source-over";
   const units = paintCopies(shifted(target, frame), stroke, matrices, from, until);
