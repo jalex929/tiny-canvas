@@ -62,3 +62,38 @@ export function resample(points: readonly Point[], spacing: number): Point[] {
  * full brush size; the lightest stylus touch is 15% of it.
  */
 export const pressureScale = (p: number) => 0.15 + 0.85 * p;
+
+/** Dash and gap lengths for a line style, scaled to the brush so gaps stay in proportion. */
+export function dashPattern(style: "dashed" | "dotted", size: number) {
+  return style === "dashed"
+    ? { dash: Math.max(8, size * 2.5), gap: Math.max(6, size * 1.6) }
+    : { dash: 0, gap: Math.max(6, size * 1.8) };
+}
+
+/**
+ * Cuts a stroke into the visible pieces of a dashed (or dotted) line. Dots are one-point
+ * pieces, which every brush paints as a single mark.
+ */
+export function dashPieces(points: readonly Point[], dash: number, gap: number): Point[][] {
+  // Dots: one mark at exactly every `gap` along the line.
+  if (dash <= 0) return resample(points, gap).map((point) => [point]);
+  const step = Math.max(0.5, Math.min(2, dash / 4));
+  const samples = resample(points, step);
+  const period = dash + gap;
+  const pieces: Point[][] = [];
+  let current: Point[] | null = null;
+  samples.forEach((point, i) => {
+    const along = (i * step) % period;
+    const on = along < dash;
+    if (on) {
+      if (!current) {
+        current = [];
+        pieces.push(current);
+      }
+      current.push(point);
+    } else {
+      current = null;
+    }
+  });
+  return pieces;
+}

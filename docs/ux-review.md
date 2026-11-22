@@ -76,3 +76,19 @@ screenshots.
 | 5   | Fill should recolor fills and lines.                                                                                                              | Works from what you see; taps on a line's soft edge snap to the line. Browser test checks refill and line recolor leave each other alone.            |
 | 6   | Phone: "Draw" appeared three times; tiles were huge; the shape menu was clipped; the move handle hid the pen; the hint stayed over a placed ring. | Single heading, first group renamed Ink, four tiles per row, shape menu floats above the tab bar, move grip below the ring, hint hides.              |
 | 7   | Desktop spirograph settings overflowed the panel.                                                                                                 | Shown as a slim bar over the canvas. Measured 0 px overflow at 1366 × 768 in every tool and tab.                                                     |
+
+## Pass 6 (2026-11-22): phone, measured
+
+Method: an automated audit on an emulated iPhone SE (375 px) and Pixel 7 that walks every tab,
+menu and tool, flagging tap targets under 32 px, text under 11 px, and controls whose centre is
+covered by something else; plus screenshots of each state.
+
+| #   | Finding                                                                                             | Change                                                                                                                            |
+| --- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The two-finger tip covered the tab bar for several seconds after the first stroke.                  | Messages appear under the header on phones, and taps pass through them (except their Undo button).                                |
+| 2   | Small targets: back link 28 px, Outline/Filled 28 px tall, smoothing/pressure 27 px, sliders 24 px. | All at least 36–44 px on phones. Audit now finds none under 32 px.                                                                |
+| 3   | Small text: tile labels 10.5 px on iPhone SE, shape names 9.5 px, ratios 10 px.                     | 11.5–12 px; the phone shape menu uses three per row so names are full size.                                                       |
+| 4   | Picking Spirograph left its settings scrolled out of view at the top of the sheet.                  | The sheet scrolls to the top whenever the tool changes.                                                                           |
+| 5   | The Download button had no accessible name on phones (its text is hidden there).                    | Named "Download" on every size; browser test checks all phone header buttons have names.                                          |
+| 6   | Shape icons didn't show whether shapes would be outlined or filled; "Outline with Pen" was noisy.   | Icons draw filled or outlined to match; the option just says "Outline".                                                           |
+| 7   | Requests: Line under Tools, dashed lines, an even symmetry grid.                                    | Line tool (L) with Solid / Dashed / Dotted for any brush; Pick color tile keeps Tools in pairs; Diagonal symmetry makes 12 modes. |

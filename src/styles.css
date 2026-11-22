@@ -3321,3 +3321,159 @@ input[type="range"] {
     letter-spacing: -0.2px;
   }
 }
+
+/* ---------- Phone usability pass 3 ---------- */
+
+/* Messages appear under the header on phones, never over the tab bar. */
+.app--phone .toast-region {
+  top: 72px;
+  bottom: auto;
+  width: calc(100% - 24px);
+  display: flex;
+  justify-content: center;
+}
+
+.app--phone .toast {
+  max-width: 100%;
+  font-size: 14px;
+}
+
+/* Finger-sized targets (at least 40px). */
+.app--phone .topbar__home {
+  min-width: 40px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.app--phone .title-input {
+  min-height: 34px;
+}
+
+.app--phone .segmented-row__option span {
+  padding: 11px 0;
+  font-size: 13px;
+}
+
+.app--phone input[type="range"] {
+  min-height: 36px;
+}
+
+.app--phone .swatch {
+  min-width: 34px;
+}
+
+/* Readable text sizes. */
+@media (max-width: 400px) {
+  .drawer__sheet .draw-tile__label {
+    font-size: 11.5px;
+  }
+}
+
+.app--phone .shape-tile__ratio {
+  font-size: 11px;
+}
+
+/* Shape menu on phones: three per row so names are full size. */
+.shape-menu--phone .shape-menu__kinds {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.shape-menu--phone .shape-menu__kind small {
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.shape-menu--floating .shape-menu__kind small {
+  font-size: 10.5px;
+}
+
+.shape-menu--phone .shape-menu__kind > span {
+  padding: 10px 0 8px;
+}
+
+/* Twelve symmetry tiles: an even grid. */
+.drawer__sheet .symmetry-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ---------- Line tool ---------- */
+
+.segmented-row--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.line-panel {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.line-panel .panel__heading {
+  margin: 0;
+}
+
+.line-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-top: 2.5px solid currentColor;
+}
+
+.line-swatch--dashed {
+  border-top-style: dashed;
+}
+
+.line-swatch--dotted {
+  border-top-style: dotted;
+  border-top-width: 3px;
+}
+
+.context-bar .line-panel {
+  grid-template-columns: auto minmax(260px, 1fr);
+  align-items: center;
+  column-gap: 16px;
+}
+
+.context-bar .line-panel .control__note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11px;
+}
+
+.stage__canvas.is-tool-line {
+  cursor: crosshair;
+}
+
+/* Messages never block taps (except their own Undo button). */
+.toast {
+  pointer-events: none;
+}
+
+.toast button {
+  pointer-events: auto;
+}
+
+/* Floating shape menu on phones: finger-sized Outline / Filled. */
+.shape-menu--phone .segmented-row__option span {
+  padding: 11px 0;
+  font-size: 13px;
+}
+
+/* The line-style sample isn't a button face: undo the segmented-row span styling. */
+.segmented-row__option .line-swatch,
+.segmented-row__option input:checked + span .line-swatch {
+  display: inline-block;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.shape-menu--floating .shape-menu__kind small {
+  font-size: 10px;
+}

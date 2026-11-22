@@ -201,10 +201,10 @@ test("Shift draws a straight line, and the Line button locks straight lines on",
     await page.mouse.up();
   };
 
-  await page.keyboard.press("l"); // lock straight lines on
+  await page.keyboard.press("l"); // the Line tool
   await zigzag();
   expect((await inkBounds(page)).height).toBeLessThan(30); // just the pen width
-  await page.keyboard.press("l");
+  await page.keyboard.press("b"); // back to the brush
 
   await page.getByRole("button", { name: "Undo" }).click();
   await page.keyboard.down("Shift");
@@ -518,4 +518,51 @@ test("no tile text spills out of its tile", async ({ page, isMobile }) => {
   if (isMobile) await page.getByRole("button", { name: /^Draw/ }).click();
   await page.getByRole("button", { name: /^Shape/ }).click();
   expect(await overflowingText(page)).toEqual([]);
+});
+
+test("line tool draws solid, dashed and dotted lines", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop");
+  const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
+  const drawLine = async () => {
+    await page.mouse.move(box.x + 120, box.y + 300);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 620, box.y + 300, { steps: 6 });
+    await page.mouse.up();
+  };
+  await page.getByRole("button", { name: /^Line/ }).click();
+  await page.getByRole("slider", { name: /^Size/ }).fill("10");
+  await drawLine();
+  const solid = await inkedPixels(page);
+  expect(solid).toBeGreaterThan(1000);
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("radio", { name: "Dashed" }).check();
+  await drawLine();
+  const dashed = await inkedPixels(page);
+  expect(dashed).toBeGreaterThan(solid * 0.4);
+  expect(dashed).toBeLessThan(solid * 0.85); // gaps
+
+  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("radio", { name: "Dotted" }).check();
+  await drawLine();
+  expect(await inkedPixels(page)).toBeLessThan(dashed);
+
+  // Pick color lives in Tools too.
+  await page.getByRole("button", { name: /^Pick color/ }).click();
+  await expect(page.getByRole("button", { name: /^Pick color/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("phone header buttons all have names (icon-only on small screens)", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(!isMobile, "phone only");
+  await expect(page.getByRole("button", { name: "Download" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^More/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Back to/ })).toBeVisible();
+  await page.getByRole("button", { name: "Download" }).click();
+  await expect(page.getByRole("button", { name: /Download PNG/ })).toBeVisible();
 });

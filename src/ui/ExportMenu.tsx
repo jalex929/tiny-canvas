@@ -57,6 +57,7 @@ export function ExportMenu({ disabled, size, onExport, onShare }: Props) {
         ref={buttonRef}
         type="button"
         className="button button--primary"
+        aria-label="Download"
         aria-expanded={open}
         aria-controls={panelId}
         disabled={disabled}

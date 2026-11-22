@@ -35,6 +35,11 @@ export const SYMMETRY_INFO: Record<
     description: "Mirrored left-right and top-bottom, 4 copies",
     usesCount: false,
   },
+  diagonal: {
+    label: "Diagonal",
+    description: "Mirrored across both diagonals through the center, 4 copies",
+    usesCount: false,
+  },
   radial: { label: "Radial", description: "Turned around the center", usesCount: true },
   kaleidoscope: {
     label: "Kaleidoscope",
@@ -107,6 +112,12 @@ export function symmetryMatrices(
       return [IDENTITY, flipX];
     case "quad":
       return [IDENTITY, flipX, flipY, multiply(flipX, flipY)];
+    case "diagonal": {
+      // Mirror lines at 45° and 135° through the center (x and y swap around it).
+      const down: Matrix = [0, 1, 1, 0, cx - cy, cy - cx];
+      const up: Matrix = [0, -1, -1, 0, cx + cy, cx + cy];
+      return [IDENTITY, down, up, multiply(down, up)];
+    }
     case "radial":
       return range(n).map((k) => turnAbout(cx, cy, (2 * Math.PI * k) / n));
     case "kaleidoscope":
@@ -207,6 +218,8 @@ export function symmetryGuideLines(
       return [fullLine(Math.PI / 2)];
     case "quad":
       return [fullLine(0), fullLine(Math.PI / 2)];
+    case "diagonal":
+      return [fullLine(Math.PI / 4), fullLine((3 * Math.PI) / 4)];
     case "radial":
       return range(n).map((k) => ray(-Math.PI / 2 + (2 * Math.PI * k) / n));
     case "spiral":

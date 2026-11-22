@@ -8,8 +8,9 @@ themselves in your browser, with no account needed.
 
 ## Features
 
-- **One Draw palette:** brushes in even pairs (Ink, Paint & glow, Playful), then Tools: Shape ▾
-  (opens a menu: shape and Outline/Filled), Fill, Spirograph and Eraser. Keys B / U / G / S.
+- **One Draw palette:** brushes in even pairs (Ink, Paint & glow, Playful), then Tools: Line (solid, dashed or
+  dotted, in any brush), Shape ▾ (menu: shape and Outline/Filled), Fill, Spirograph, Pick color
+  and Eraser. Keys B / L / U / G / S.
 - **Brushes (grouped, in pairs):** _Draw_: Pen, Pencil (darker with pressure), Marker
   (multiplies where it overlaps), Calligraphy. _Paint & glow_: Spray, Neon. _Playful_:
   Sparkle, Hearts, Pattern (zigzag, waves, dots, candy stripes), Rainbow. _Clean up_: Eraser.
@@ -43,7 +44,7 @@ themselves in your browser, with no account needed.
   Events. Full pressure = full brush size, lightest touch = 15%. Curves: Soft, Normal, Firm,
   Off; readings are smoothed. Once a stylus is detected, "Only the pen draws" (on by default)
   makes fingers pan and zoom instead of drawing (palm rejection).
-- **Effects:** symmetry off / mirror / mirror ×4 / radial / kaleidoscope / spiral (each copy
+- **Effects:** symmetry off / mirror / mirror ×4 / diagonal / radial / kaleidoscope / spiral (each copy
   turned and shrunk) / tunnel / bloom / tile (wallpaper repeat) / quilt (mirrored tiles) / echo (diagonal trail),
   with 2–16 copies for the modes that use a count, each shown as a
   picture drawn by the engine; optional guide lines on the canvas (never exported); size; opacity;

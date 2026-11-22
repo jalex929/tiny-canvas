@@ -13,6 +13,7 @@ import {
   CANVAS_SHAPES,
   type Action,
   type CanvasShapeId,
+  type LineStyle,
   type CanvasSize,
   type BrushId,
   type History,
@@ -41,6 +42,7 @@ import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
   FillPanel,
   SpiroPanel,
+  LinePanel,
   type Tool,
   BackgroundPanel,
   BrushOptionsPanel,
@@ -156,6 +158,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [spiroWheel, setSpiroWheel] = useState(52);
   const [spiroHole, setSpiroHole] = useState(0.75);
   const [spiroRing, setSpiroRing] = useState<SpiroRing | null>(null);
+  const [lineStyle, setLineStyle] = useState<LineStyle>("solid");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(store ? "idle" : "unavailable");
   const [shelfOpen, setShelfOpen] = useState(false);
   const [shelf, setShelf] = useState<DrawingSummary[] | "loading" | "error">("loading");
@@ -415,12 +418,27 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   const options = brushOptions[brush];
   const template: StrokeTemplate = useMemo(
-    () => ({ brush, color, size, opacity, symmetry, symmetryCount, options }),
-    [brush, color, size, opacity, symmetry, symmetryCount, options],
+    () => ({
+      brush,
+      color,
+      size,
+      opacity,
+      symmetry,
+      symmetryCount,
+      options,
+      // Only the Line tool draws dashed or dotted.
+      ...(tool === "line" && lineStyle !== "solid" ? { lineStyle } : {}),
+    }),
+    [brush, color, size, opacity, symmetry, symmetryCount, options, tool, lineStyle],
   );
 
   const setOption = (key: string, value: number) =>
     setBrushOptions((all) => ({ ...all, [brush]: { ...all[brush], [key]: value } }));
+
+  useEffect(() => {
+    if (!isPhone) return;
+    document.getElementById("drawer-sheet")?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [tool, isPhone]);
 
   const shapeSettings = useMemo(
     () => ({ kind: shapeKind, filled: shapeFilled }),
@@ -536,6 +554,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         else if (key === "u") setTool("shape");
         else if (key === "g") setTool("fill");
         else if (key === "s") setTool("spiro");
+        else if (key === "l") setTool("line");
         else if (/^[0-9]$/.test(key) && target.getAttribute("type") !== "range") {
           const index = key === "0" ? 9 : Number(key) - 1;
           const id = BRUSH_IDS[index];
@@ -564,11 +583,13 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const toolLabel =
     tool === "fill"
       ? "Fill"
-      : tool === "spiro"
-        ? "Spirograph"
-        : tool === "shape"
-          ? SHAPE_INFO[shapeKind].label
-          : BRUSHES[brush].label;
+      : tool === "line"
+        ? "Line"
+        : tool === "spiro"
+          ? "Spirograph"
+          : tool === "shape"
+            ? SHAPE_INFO[shapeKind].label
+            : BRUSHES[brush].label;
 
   const brushOptionsPanel = (
     <BrushOptionsPanel brush={brush} values={options} onChange={setOption} collapsible={!isPhone} />
@@ -639,6 +660,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           onShapeKind={setShapeKind}
           shapeFilled={shapeFilled}
           onShapeFilled={setShapeFilled}
+          eyedropper={eyedropper}
+          onEyedropper={setEyedropper}
         />
       );
       const settings = (
@@ -654,6 +677,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
               onNewRing={() => setSpiroRing(null)}
             />
           )}
+          {tool === "line" && isPhone && <LinePanel style={lineStyle} onStyle={setLineStyle} />}
           {tool === "fill" && <FillPanel />}
           {tool === "brush" && brushOptionsPanel}
         </>
@@ -704,7 +728,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       onFill={onFill}
       showSizePreview={sizePreview}
       contextBar={
-        tool === "spiro" && !isPhone ? (
+        tool === "line" && !isPhone ? (
+          <LinePanel style={lineStyle} onStyle={setLineStyle} />
+        ) : tool === "spiro" && !isPhone ? (
           <SpiroPanel
             wheel={spiroWheel}
             onWheel={setSpiroWheel}

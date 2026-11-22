@@ -1,6 +1,7 @@
 import { BRUSHES } from "./brushes";
 import { applyMatrix, symmetryMatrices, type Matrix } from "./symmetry";
 import type { PlacedStroke } from "./history";
+import { dashPattern, dashPieces } from "./geometry";
 import { DOC_HEIGHT, DOC_WIDTH, type Stroke } from "./types";
 
 /**
@@ -129,6 +130,24 @@ function paintCopies(
       target.originY ?? 0,
     );
     target.ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
+    if (stroke.lineStyle && stroke.lineStyle !== "solid") {
+      // Dashed and dotted lines paint as one unit: each dash is its own small stroke.
+      units = 1;
+      if (from === 0 && until >= 1) {
+        const { dash, gap } = dashPattern(stroke.lineStyle, stroke.size);
+        dashPieces(stroke.points, dash, gap).forEach((points, i) => {
+          brush.paint({
+            ctx: target.ctx,
+            stroke: { ...stroke, seed: stroke.seed + i, points },
+            pixelScale: target.scale,
+            from: 0,
+            until: Infinity,
+          });
+        });
+      }
+      target.ctx.restore();
+      continue;
+    }
     // Same seed for every copy, so mirrored halves match exactly.
     units = brush.paint({ ctx: target.ctx, stroke, pixelScale: target.scale, from, until });
     target.ctx.restore();

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dashPieces } from "./geometry";
 import { constrainLine, linePoints } from "./lines";
 
 const start = { x: 100, y: 100, p: 0.5 };
@@ -38,5 +39,25 @@ describe("linePoints", () => {
 
   it("returns a dot for a zero-length line", () => {
     expect(linePoints(start, { x: 100, y: 100 })).toHaveLength(2);
+  });
+});
+
+describe("dashed and dotted lines", () => {
+  const line = linePoints({ x: 0, y: 0, p: 1 }, { x: 200, y: 0 }, 2);
+
+  it("dashes alternate on and off along the line", () => {
+    const pieces = dashPieces(line, 20, 10);
+    expect(pieces.length).toBeGreaterThanOrEqual(6);
+    expect(pieces.length).toBeLessThanOrEqual(8);
+    const first = pieces[0]!;
+    const second = pieces[1]!;
+    expect(first[first.length - 1]!.x - first[0]!.x).toBeCloseTo(18, 0);
+    expect(second[0]!.x - first[first.length - 1]!.x).toBeGreaterThan(9);
+  });
+
+  it("dots are single points at even spacing", () => {
+    const dots = dashPieces(line, 0, 25);
+    expect(dots.every((d) => d.length === 1)).toBe(true);
+    expect(dots[1]![0]!.x - dots[0]![0]!.x).toBeCloseTo(25, 0);
   });
 });

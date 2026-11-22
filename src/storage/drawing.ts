@@ -91,8 +91,20 @@ export function parseAction(value: unknown): Action | null {
 
 function parseStroke(value: unknown): Stroke | null {
   if (!isRecord(value)) return null;
-  const { id, brush, color, size, opacity, symmetry, seed, points, options, symmetryCount, mask } =
-    value;
+  const {
+    id,
+    brush,
+    color,
+    size,
+    opacity,
+    symmetry,
+    seed,
+    points,
+    options,
+    symmetryCount,
+    mask,
+    lineStyle,
+  } = value;
   if (typeof id !== "string") return null;
   if (!BRUSH_IDS.includes(brush as BrushId)) return null;
   const hex = typeof color === "string" ? normalizeHex(color) : null;
@@ -117,6 +129,7 @@ function parseStroke(value: unknown): Stroke | null {
       ? { symmetryCount: Math.round(clamp(symmetryCount, 2, 16)) }
       : {}),
     ...(brush === "fill" && parseMask(mask) ? { mask: parseMask(mask)! } : {}),
+    ...(lineStyle === "dashed" || lineStyle === "dotted" ? { lineStyle } : {}),
   };
 }
 

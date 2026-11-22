@@ -23,7 +23,7 @@ describe("symmetry", () => {
 
   it("produces the expected number of copies, original first", () => {
     expect(SYMMETRY_MODES.map((m) => copies(m).length)).toEqual([
-      1, 2, 4, 6, 12, 6, 6, 12, 25, 25, 6,
+      1, 2, 4, 4, 6, 12, 6, 6, 12, 25, 25, 6,
     ]);
     expect(symmetryMatrices("radial", DOC_WIDTH, DOC_HEIGHT, 9)).toHaveLength(9);
     expect(symmetryMatrices("kaleidoscope", DOC_WIDTH, DOC_HEIGHT, 3)).toHaveLength(6);
@@ -261,6 +261,15 @@ describe("new symmetry modes", () => {
     const copies = symmetryMatrices("tile", 1500, 1200).map((m) => applyMatrix(m, 100, 100));
     expect(copies).toContainEqual({ x: 600, y: 500 });
     expect(copies).toContainEqual({ x: 1100, y: 900 });
+  });
+
+  it("diagonal mirrors across the 45° lines through the center", () => {
+    const [, down, up, both] = symmetryMatrices("diagonal", DOC_WIDTH, DOC_HEIGHT);
+    const cx = DOC_WIDTH / 2;
+    const cy = DOC_HEIGHT / 2;
+    expect(applyMatrix(down!, cx + 100, cy + 30)).toEqual({ x: cx + 30, y: cy + 100 });
+    expect(applyMatrix(up!, cx + 100, cy + 30)).toEqual({ x: cx - 30, y: cy - 100 });
+    expect(applyMatrix(both!, cx + 100, cy + 30)).toEqual({ x: cx - 100, y: cy - 30 });
   });
 
   it("tunnel copies shrink straight in without turning", () => {

@@ -56,7 +56,7 @@ interface Props {
   /** Steadies freehand lines (lazy brush). */
   smoothing: SmoothingLevel;
   /** What a press on the canvas does. */
-  tool: "brush" | "shape" | "fill" | "spiro";
+  tool: "brush" | "shape" | "fill" | "spiro" | "line";
   /** Spirograph: the placed ring (null until placed) and the wheel in use. */
   spiro: { ring: SpiroRing | null; gear: SpiroGear };
   onSpiroRing: (ring: SpiroRing | null) => void;
@@ -124,6 +124,8 @@ interface LiveStroke {
   reset: boolean;
   /** Shape tool: where the drag started. */
   shapeStart?: Point;
+  /** Line tool: where the line starts. */
+  lineStart?: Point;
 }
 
 /** Spirograph pen drawing: ignore the pointer this close to the ring's center (angle jitters). */
@@ -494,7 +496,6 @@ export function CanvasStage({
       else if (event.key === "-" || event.key === "_") zoomBy(1 / ZOOM_STEP);
       else if (event.key === "f" || event.key === "F") fit();
       else if (event.key === "h" || event.key === "H") setHandMode((v) => !v);
-      else if (event.key === "l" || event.key === "L") setLineLocked((v) => !v);
       else return;
       event.preventDefault();
     };
@@ -751,6 +752,12 @@ export function CanvasStage({
       begin(penAt(ring, spiro.gear, spiroAngleRef.current), event.pointerId);
       return;
     }
+    if (tool === "line") {
+      const start = { ...toDoc(event), p: 1 };
+      begin(start, event.pointerId);
+      liveRef.current!.lineStart = start;
+      return;
+    }
     if (tool === "shape") {
       const start = { ...toDoc(event), p: 1 };
       // Filled shapes are solid color; outlines use the current brush.
@@ -829,6 +836,13 @@ export function CanvasStage({
       if (!spiroGlideRef.current) spiroGlideRef.current = requestAnimationFrame(glideSpiro);
       return;
     }
+    if (live.lineStart) {
+      const end = constrainLine(live.lineStart, { ...toDoc(event), p: 1 }, "any", !event.altKey);
+      live.stroke.points = linePoints(live.lineStart, end);
+      live.reset = true;
+      requestFrame();
+      return;
+    }
     if (live.shapeStart) {
       const points = shapePoints(shape.kind, live.shapeStart, toDoc(event), {
         square: event.shiftKey,
@@ -903,6 +917,14 @@ export function CanvasStage({
       spiroGlideRef.current = 0;
       advanceSpiro(spiroTargetRef.current);
       finish(!!live && live.stroke.points.length > 1);
+      return;
+    }
+    if (live?.pointerId === event.pointerId && live.lineStart) {
+      const pts = live.stroke.points;
+      const a = pts[0];
+      const b = pts[pts.length - 1];
+      // A tap without a drag draws nothing.
+      finish(!!a && !!b && Math.hypot(b.x - a.x, b.y - a.y) > 2);
       return;
     }
     if (live?.pointerId === event.pointerId && live.shapeStart) {

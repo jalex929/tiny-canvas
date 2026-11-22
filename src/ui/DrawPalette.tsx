@@ -25,15 +25,33 @@ interface Props {
   onShapeKind: (kind: ShapeKind) => void;
   shapeFilled: boolean;
   onShapeFilled: (filled: boolean) => void;
+  /** Pick color: the next tap on the drawing picks its color. */
+  eyedropper: boolean;
+  onEyedropper: (armed: boolean) => void;
 }
 
 /** A shape's outline drawn by the same code that draws it on the canvas. */
-export function ShapeIcon({ kind, size = 24 }: { kind: ShapeKind; size?: number }) {
+export function ShapeIcon({
+  kind,
+  size = 24,
+  filled = false,
+}: {
+  kind: ShapeKind;
+  size?: number;
+  /** Drawn solid when shapes will be filled, as an outline otherwise. */
+  filled?: boolean;
+}) {
   const points = shapePoints(kind, { x: 3, y: 3 }, { x: 29, y: 29 });
   const d = points.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("");
   return (
     <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden="true" className="shape-icon">
-      <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" />
+      <path
+        d={d}
+        fill={filled ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -156,6 +174,7 @@ export function DrawPalette(props: Props) {
           Tools
         </h3>
         <div className="draw-grid">
+          {toolTile("line", "Line", <Icon name="line" />, "L")}
           <div className="draw-tile-wrap">
             <button
               ref={shapeButton}
@@ -171,7 +190,7 @@ export function DrawPalette(props: Props) {
               }}
             >
               <span className="draw-tile__icon">
-                <ShapeIcon kind={props.shapeKind} />
+                <ShapeIcon kind={props.shapeKind} filled={props.shapeFilled} />
               </span>
               <span className="draw-tile__label">
                 Shape
@@ -207,7 +226,7 @@ export function DrawPalette(props: Props) {
                           onKeyDown={(e) => e.key === "Enter" && setShapeMenu(false)}
                         />
                         <span>
-                          <ShapeIcon kind={k} size={26} />
+                          <ShapeIcon kind={k} size={26} filled={props.shapeFilled} />
                           <small>{SHAPE_INFO[k].label}</small>
                         </span>
                       </label>
@@ -217,7 +236,7 @@ export function DrawPalette(props: Props) {
                     <legend className="visually-hidden">Style</legend>
                     {(
                       [
-                        [false, `Outline with ${BRUSHES[brush].label}`],
+                        [false, "Outline"],
                         [true, "Filled"],
                       ] as const
                     ).map(([value, label]) => (
@@ -238,6 +257,18 @@ export function DrawPalette(props: Props) {
           </div>
           {toolTile("fill", "Fill", <Icon name="bucket" />, "G")}
           {toolTile("spiro", "Spirograph", <Icon name="spiro" />, "S")}
+          <button
+            type="button"
+            className="draw-tile draw-tile--tool"
+            aria-pressed={props.eyedropper}
+            onClick={() => props.onEyedropper(!props.eyedropper)}
+            title="Pick a color from your drawing (Alt + click)"
+          >
+            <span className="draw-tile__icon">
+              <Icon name="dropper" />
+            </span>
+            <span className="draw-tile__label">Pick color</span>
+          </button>
           {brushTile("eraser")}
         </div>
       </div>

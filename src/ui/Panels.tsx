@@ -12,6 +12,8 @@ import {
   symmetryLabel,
 } from "../engine/symmetry";
 import {
+  LINE_STYLES,
+  type LineStyle,
   BRUSH_GROUPS,
   BRUSH_IDS,
   CANVAS_SHAPES,
@@ -212,7 +214,7 @@ export function BrushOptionsPanel({
   );
 }
 
-export type Tool = "brush" | "shape" | "fill" | "spiro";
+export type Tool = "brush" | "shape" | "fill" | "spiro" | "line";
 
 const TOOLS: {
   id: Tool;
@@ -983,8 +985,8 @@ export function ShortcutsHelp({ popover = false }: { popover?: boolean }) {
         <dd>Fit the drawing to the screen</dd>
         <dt>Alt + click</dt>
         <dd>Pick a color from the drawing</dd>
-        <dt>B / U / G / S</dt>
-        <dd>Brush, Shape, Fill, Spirograph</dd>
+        <dt>B / L / U / G / S</dt>
+        <dd>Brush, Line, Shape, Fill, Spirograph</dd>
         <dt>Shape + Shift / Alt</dt>
         <dd>Keep proportions / draw from the center</dd>
         <dt>Shift + drag</dt>
@@ -1003,5 +1005,38 @@ export function ShortcutsHelp({ popover = false }: { popover?: boolean }) {
         <dd>Move around; Ctrl+scroll or pinch to zoom</dd>
       </dl>
     </details>
+  );
+}
+
+/** Line tool: drag for a straight line in the current brush, solid, dashed or dotted. */
+export function LinePanel({
+  style,
+  onStyle,
+}: {
+  style: LineStyle;
+  onStyle: (style: LineStyle) => void;
+}) {
+  return (
+    <div className="control line-panel">
+      <h2 className="panel__heading">Line</h2>
+      <fieldset className="segmented-row segmented-row--3">
+        <legend className="visually-hidden">Line style</legend>
+        {LINE_STYLES.map((s) => (
+          <label key={s} className="segmented-row__option">
+            <input
+              type="radio"
+              name="line-style"
+              checked={style === s}
+              onChange={() => onStyle(s)}
+            />
+            <span>
+              <span className={`line-swatch line-swatch--${s}`} aria-hidden="true" />
+              {s[0]!.toUpperCase() + s.slice(1)}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <p className="control__note">Drag to draw. Snaps to flat, upright and 45° when close.</p>
+    </div>
   );
 }

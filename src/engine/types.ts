@@ -64,6 +64,7 @@ export const SYMMETRY_MODES = [
   "none",
   "mirror",
   "quad",
+  "diagonal",
   "radial",
   "kaleidoscope",
   "spiral",
@@ -101,6 +102,8 @@ export interface Stroke {
   symmetryCount?: number;
   /** Fill-tool area at document resolution ("fill" brush only). */
   mask?: FillMask;
+  /** Dashed or dotted stroke (the Line tool). Missing = solid. */
+  lineStyle?: LineStyle;
 }
 
 export type Action =
@@ -118,3 +121,6 @@ export interface History {
 }
 
 export const DEFAULT_BACKGROUND = "#ffffff";
+
+export const LINE_STYLES = ["solid", "dashed", "dotted"] as const;
+export type LineStyle = (typeof LINE_STYLES)[number];
