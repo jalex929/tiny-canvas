@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "A pocket sketchbook in the browser: expressive brushes, pen pressure, symmetry, straight lines and a shelf that remembers your work.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",

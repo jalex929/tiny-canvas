@@ -137,3 +137,7 @@ size.
 
 Built by Jay Fox as the first project of a small, private "creative lab" of games and tools,
 then moved to its own repository. Design and engineering notes live in [docs/](docs/).
+
+## License
+
+[MIT](LICENSE) © 2026 Jay Fox

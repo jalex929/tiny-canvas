@@ -13,5 +13,4 @@ Moved from the creative-lab repo on 2026-11-22; earlier entries are summarized.
   or share via the system share sheet. Storage sits behind a `DrawingStore` interface.
 - **Relative paths.** Builds with `base: "./"` so the site works at any URL or sub-path.
 - **Hosting:** published from Bolt (Netlify). The portfolio may embed or link it later.
-- **License:** not chosen yet, so all rights are reserved by default. Choose before
-  inviting reuse.
+- **License:** MIT (owner decision, 2026-11-22). See `LICENSE`.
