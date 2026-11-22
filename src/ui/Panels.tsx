@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { BRUSHES } from "../engine/brushes";
 import { normalizeHex } from "../engine/color";
 import { PRESSURE_CURVES, PRESSURE_INFO, type PressureCurve } from "../engine/pressure";
@@ -12,6 +13,7 @@ import {
   type SymmetryMode,
 } from "../engine/types";
 import { BrushPreview } from "./BrushPreview";
+import { Icon } from "./Icon";
 import { BACKGROUNDS, PALETTE, colorName } from "./palette";
 import { SymmetryPreview } from "./SymmetryPreview";
 
@@ -251,12 +253,17 @@ export function ColorPanel({
   onHexDraft,
   recent,
   onPick,
+  eyedropper,
+  onEyedropper,
 }: {
   color: string;
   hexDraft: string;
   onHexDraft: (value: string) => void;
   recent: string[];
   onPick: (hex: string) => void;
+  /** True while the next tap on the drawing picks a color. */
+  eyedropper: boolean;
+  onEyedropper: (armed: boolean) => void;
 }) {
   return (
     <section className="control" aria-labelledby="color-heading">
@@ -321,6 +328,16 @@ export function ColorPanel({
           />
         </form>
       </div>
+      <button
+        type="button"
+        className={`button button--small eyedropper ${eyedropper ? "is-armed" : ""}`}
+        aria-pressed={eyedropper}
+        onClick={() => onEyedropper(!eyedropper)}
+        title="Pick a color from your drawing (desktop: Alt + click)"
+      >
+        <Icon name="dropper" />
+        <span>{eyedropper ? "Tap the drawing to pick a color" : "Pick from drawing"}</span>
+      </button>
       {recent.length > 1 && (
         <div className="recent">
           <h3 id="recent-heading">Recent</h3>
@@ -343,125 +360,195 @@ export function ColorPanel({
   );
 }
 
-export function EffectsPanel({
+/** Brush size and opacity: the settings people change most, so they stay close at hand. */
+export function SizePanel({
   size,
   onSize,
   opacity,
   onOpacity,
-  symmetry,
-  onSymmetry,
-  showGuides,
-  onShowGuides,
-  background,
-  onBackground,
   color,
+  compact = false,
 }: {
-  showGuides: boolean;
-  onShowGuides: (value: boolean) => void;
   size: number;
   onSize: (value: number) => void;
   opacity: number;
   onOpacity: (value: number) => void;
+  color: string;
+  /** One slim row for the phone quick bar. */
+  compact?: boolean;
+}) {
+  const dot = Math.max(3, Math.min(compact ? 22 : 32, size / 3));
+  return (
+    <div className={compact ? "quickbar" : "control size-panel"}>
+      <span className="size-dot" aria-hidden="true">
+        <span style={{ width: dot, height: dot, background: color, opacity }} />
+      </span>
+      <label className="slider">
+        <span className="slider__label">
+          Size <span className="slider__value">{size}px</span>
+        </span>
+        <input
+          type="range"
+          min={SIZE_MIN}
+          max={SIZE_MAX}
+          value={size}
+          onChange={(e) => onSize(Number(e.target.value))}
+        />
+      </label>
+      <label className="slider">
+        <span className="slider__label">
+          Opacity <span className="slider__value">{Math.round(opacity * 100)}%</span>
+        </span>
+        <input
+          type="range"
+          min={5}
+          max={100}
+          step={5}
+          value={Math.round(opacity * 100)}
+          onChange={(e) => onOpacity(Number(e.target.value) / 100)}
+        />
+      </label>
+    </div>
+  );
+}
+
+export function SymmetryPanel({
+  symmetry,
+  onSymmetry,
+  showGuides,
+  onShowGuides,
+  hideHeading = false,
+}: {
   symmetry: SymmetryMode;
   onSymmetry: (mode: SymmetryMode) => void;
+  showGuides: boolean;
+  onShowGuides: (value: boolean) => void;
+  hideHeading?: boolean;
+}) {
+  return (
+    <fieldset className="control symmetry">
+      <legend className={hideHeading ? "visually-hidden" : "panel__heading"}>Symmetry</legend>
+      <div className="symmetry-grid">
+        {SYMMETRY_MODES.map((mode) => (
+          <label key={mode} className="symmetry-tile" title={SYMMETRY_INFO[mode].description}>
+            <input
+              type="radio"
+              name="symmetry"
+              value={mode}
+              checked={symmetry === mode}
+              onChange={() => onSymmetry(mode)}
+              aria-label={SYMMETRY_INFO[mode].label}
+              aria-describedby={`symmetry-hint-${mode}`}
+            />
+            <span className="symmetry-tile__body">
+              <SymmetryPreview mode={mode} ink="#000052" />
+              <span className="symmetry-tile__label">{SYMMETRY_INFO[mode].label}</span>
+            </span>
+            <span id={`symmetry-hint-${mode}`} className="visually-hidden">
+              {SYMMETRY_INFO[mode].description}
+            </span>
+          </label>
+        ))}
+      </div>
+      <label className="check check--spaced">
+        <input
+          type="checkbox"
+          checked={showGuides}
+          disabled={symmetry === "none"}
+          onChange={(e) => onShowGuides(e.target.checked)}
+        />
+        <span>
+          Show guides
+          <small> Dashed lines on the canvas. They never appear in downloads.</small>
+        </span>
+      </label>
+    </fieldset>
+  );
+}
+
+export function BackgroundPanel({
+  background,
+  onBackground,
+  color,
+  hideHeading = false,
+}: {
   background: string;
   onBackground: (hex: string) => void;
   color: string;
+  hideHeading?: boolean;
 }) {
   return (
-    <>
-      <div className="control">
-        <label className="slider">
-          <span className="slider__label">
-            Size <span className="slider__value">{size}px</span>
-          </span>
-          <input
-            type="range"
-            min={SIZE_MIN}
-            max={SIZE_MAX}
-            value={size}
-            onChange={(e) => onSize(Number(e.target.value))}
-          />
-        </label>
-        <label className="slider">
-          <span className="slider__label">
-            Opacity <span className="slider__value">{Math.round(opacity * 100)}%</span>
-          </span>
-          <input
-            type="range"
-            min={5}
-            max={100}
-            step={5}
-            value={Math.round(opacity * 100)}
-            onChange={(e) => onOpacity(Number(e.target.value) / 100)}
-          />
-        </label>
-      </div>
-
-      <fieldset className="control symmetry">
-        <legend className="panel__heading">Symmetry</legend>
-        <div className="symmetry-grid">
-          {SYMMETRY_MODES.map((mode) => (
-            <label key={mode} className="symmetry-tile" title={SYMMETRY_INFO[mode].description}>
-              <input
-                type="radio"
-                name="symmetry"
-                value={mode}
-                checked={symmetry === mode}
-                onChange={() => onSymmetry(mode)}
-                aria-label={SYMMETRY_INFO[mode].label}
-                aria-describedby={`symmetry-hint-${mode}`}
-              />
-              <span className="symmetry-tile__body">
-                <SymmetryPreview mode={mode} ink="#000052" />
-                <span className="symmetry-tile__label">{SYMMETRY_INFO[mode].label}</span>
-              </span>
-              <span id={`symmetry-hint-${mode}`} className="visually-hidden">
-                {SYMMETRY_INFO[mode].description}
-              </span>
-            </label>
-          ))}
-        </div>
-        <label className="check check--spaced">
-          <input
-            type="checkbox"
-            checked={showGuides}
-            disabled={symmetry === "none"}
-            onChange={(e) => onShowGuides(e.target.checked)}
-          />
-          <span>
-            Show guides
-            <small> Dashed lines on the canvas. They never appear in downloads.</small>
-          </span>
-        </label>
-      </fieldset>
-
-      <div className="control">
-        <h2 className="panel__heading" id="bg-heading">
-          Background
-        </h2>
-        <div className="bg-row" role="group" aria-labelledby="bg-heading">
-          {BACKGROUNDS.map((bg) => (
-            <button
-              key={bg.hex}
-              type="button"
-              className="bg-chip"
-              style={{ background: bg.hex }}
-              aria-label={`${bg.name} background`}
-              aria-pressed={background === bg.hex}
-              onClick={() => onBackground(bg.hex)}
-            />
-          ))}
+    <div className="control">
+      <h2 className={hideHeading ? "visually-hidden" : "panel__heading"} id="bg-heading">
+        Background
+      </h2>
+      <div className="bg-row" role="group" aria-labelledby="bg-heading">
+        {BACKGROUNDS.map((bg) => (
           <button
+            key={bg.hex}
             type="button"
-            className="button button--small"
-            onClick={() => onBackground(color)}
-          >
-            Use brush color
-          </button>
-        </div>
+            className="bg-chip"
+            style={{ background: bg.hex }}
+            aria-label={`${bg.name} background`}
+            aria-pressed={background === bg.hex}
+            onClick={() => onBackground(bg.hex)}
+          />
+        ))}
+        <button type="button" className="button button--small" onClick={() => onBackground(color)}>
+          Use brush color
+        </button>
       </div>
-    </>
+    </div>
+  );
+}
+
+/**
+ * A collapsible section for less-used settings. Remembers open/closed in this browser so the
+ * panel looks the way you left it.
+ */
+export function Section({
+  id,
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  id: string;
+  title: string;
+  /** Current value, shown next to the title so you can see it while the section is closed. */
+  summary?: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const key = `tiny-canvas:section:${id}`;
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      return saved === null ? defaultOpen : saved === "open";
+    } catch {
+      return defaultOpen;
+    }
+  });
+  return (
+    <details
+      className="section"
+      open={open}
+      onToggle={(e) => {
+        const next = (e.currentTarget as HTMLDetailsElement).open;
+        setOpen(next);
+        try {
+          localStorage.setItem(key, next ? "open" : "closed");
+        } catch {
+          /* per-viewer convenience only */
+        }
+      }}
+    >
+      <summary className="section__summary">
+        <span className="section__title">{title}</span>
+        {summary && <span className="section__value">{summary}</span>}
+      </summary>
+      <div className="section__body">{children}</div>
+    </details>
   );
 }
 
@@ -480,6 +567,8 @@ export function ShortcutsHelp() {
         <dd>Zoom in and out</dd>
         <dt>F</dt>
         <dd>Fit the drawing to the screen</dd>
+        <dt>Alt + click</dt>
+        <dd>Pick a color from the drawing</dd>
         <dt>Shift + drag</dt>
         <dd>Straight line (snaps near flat, upright and 45°)</dd>
         <dt>L</dt>

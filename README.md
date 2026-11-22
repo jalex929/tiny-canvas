@@ -15,7 +15,7 @@ themselves in your browser, with no account needed.
   scatter (Sparkle, Hearts), style and scale (Pattern), web (Threads). Stored per stroke, so
   re-renders and saved drawings keep them. Tile previews update live.
 - **Canvas shapes:** Square, Landscape 4:3, Portrait 3:4, Wide 16:9, Tall 9:16 (~2 MP each).
-  New drawings start square on phones and 4:3 on larger screens. Changing shape is undoable
+  New drawings start portrait (3:4) on phones and 4:3 on larger screens. Changing shape is undoable
   and keeps the drawing centered.
 - **Straight lines:** hold Shift (snaps when within 6° of flat, upright or 45°), or use the
   Line hotspot: hold it with one thumb while drawing, or tap to lock it on (L). Angle choices:
@@ -36,6 +36,11 @@ themselves in your browser, with no account needed.
 - **Phone layout (≤900px wide):** full-screen canvas with a bottom drawer (Brush, Color,
   Effects) and Undo/Redo within thumb reach. The drawer pushes the canvas up rather than
   covering it.
+- **Quick controls:** size/opacity always visible (top of the desktop panel; a bar above the
+  phone tabs). Two-finger tap undoes, three-finger tap redoes. Eyedropper: "Pick from drawing"
+  or Alt+click. Less-used settings are collapsible on desktop. See
+  [docs/ux-review-tiny-canvas.md](../../docs/ux-review-tiny-canvas.md).
+- **Share:** on phones and tablets, "Share or save to Photos" opens the system share sheet.
 - **Download:** PNG (optional transparent background) or JPG, at twice the canvas size
   (e.g. 3200 × 2400 for landscape, 2800 × 2800 for square).
 

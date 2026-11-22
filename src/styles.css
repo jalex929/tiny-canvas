@@ -1783,3 +1783,148 @@ input[type="range"] {
 .workspace--phone .line-tool__mode {
   width: 40px;
 }
+
+/* ---------- Size and opacity (desktop panel + phone quick bar) ---------- */
+
+.size-panel {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  column-gap: 12px;
+  row-gap: 10px;
+  align-items: center;
+}
+
+.size-panel .size-dot {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.size-dot {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--navy-08);
+}
+
+.size-dot > span {
+  display: block;
+  border-radius: 50%;
+}
+
+.size-panel .slider + .slider {
+  margin-top: 0;
+}
+
+.quickbar {
+  display: grid;
+  grid-template-columns: 30px 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px 0;
+}
+
+.quickbar .size-dot {
+  width: 30px;
+  height: 30px;
+}
+
+.quickbar .slider {
+  gap: 0;
+}
+
+.quickbar .slider + .slider {
+  margin-top: 0;
+}
+
+.quickbar .slider__label {
+  font-size: 11px;
+}
+
+.quickbar input[type="range"] {
+  min-height: 24px;
+}
+
+/* ---------- Collapsible sections ---------- */
+
+.section {
+  margin-top: 16px;
+  border-top: 1px solid var(--navy-08);
+}
+
+.section__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0 4px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 4px;
+}
+
+.section__summary::-webkit-details-marker {
+  display: none;
+}
+
+.section__summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--navy);
+  border-bottom: 2px solid var(--navy);
+  transform: rotate(-45deg);
+  transition: transform 120ms var(--ease);
+  margin-right: 2px;
+}
+
+.section[open] > .section__summary::before {
+  transform: rotate(45deg);
+}
+
+.section__title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.section__value {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--navy-60);
+}
+
+.section__body > .control,
+.section__body > fieldset.control:first-child {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* ---------- Eyedropper ---------- */
+
+.eyedropper {
+  margin-top: 10px;
+}
+
+.eyedropper.is-armed {
+  background: var(--yellow);
+  border-color: var(--navy);
+}
+
+.stage__canvas.is-eyedropper {
+  cursor: copy;
+}
+
+/* Smaller first-run hint on phones so it doesn't cover the page. */
+.app--phone .stage__empty {
+  max-width: 24ch;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.app--phone .stage__empty span {
+  font-size: 18px;
+}

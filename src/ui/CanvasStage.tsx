@@ -38,6 +38,12 @@ interface Props {
   /** When a stylus is in use, fingers only move and zoom (palm rejection). */
   penOnly: boolean;
   onPenDetected: () => void;
+  /** When armed, the next tap picks a color instead of drawing. */
+  eyedropper: boolean;
+  onPickColor: (hex: string) => void;
+  /** Two-finger tap and three-finger tap (the drawing-app convention). */
+  onUndoGesture: () => void;
+  onRedoGesture: () => void;
   onCommit: (stroke: Stroke) => void;
   onAnnounce: (message: string) => void;
 }
@@ -90,6 +96,10 @@ export function CanvasStage({
   pressureCurve,
   penOnly,
   onPenDetected,
+  eyedropper,
+  onPickColor,
+  onUndoGesture,
+  onRedoGesture,
   onCommit,
   onAnnounce,
 }: Props) {
@@ -105,6 +115,14 @@ export function CanvasStage({
   const gestureRef = useRef<Gesture | null>(null);
   /** After a two-finger gesture, ignore touches until every finger has lifted. */
   const suppressTouchRef = useRef(false);
+  /** A multi-finger touch that might turn out to be a tap (undo/redo) rather than a pinch. */
+  const tapRef = useRef<{
+    startedAt: number;
+    fingers: number;
+    moved: boolean;
+    startView: View;
+    starts: Map<number, { x: number; y: number }>;
+  } | null>(null);
 
   const doc: Size = { width: scene.width, height: scene.height };
   const docRef = useRef(doc);
@@ -410,6 +428,26 @@ export function CanvasStage({
     return smoothPressure(previous, shapePressure(event.pressure, pressureRef.current.curve));
   };
 
+  /**
+   * Reads the color under a point: the drawing if there is ink there, otherwise the paper.
+   * Partly see-through ink is blended over the paper, so you get the color you see.
+   */
+  const sampleColor = (point: { x: number; y: number }): string => {
+    const layers = layersRef.current;
+    const dpr = dprRef.current;
+    if (!layers) return scene.background;
+    const [r, g, b, a] = layers.display.getImageData(
+      Math.floor(point.x * dpr),
+      Math.floor(point.y * dpr),
+      1,
+      1,
+    ).data as unknown as [number, number, number, number];
+    const bg = parseInt(scene.background.slice(1), 16);
+    const mix = (ink: number, paper: number) => Math.round((ink * a) / 255 + paper * (1 - a / 255));
+    const hex = (n: number) => n.toString(16).padStart(2, "0");
+    return `#${hex(mix(r, (bg >> 16) & 255))}${hex(mix(g, (bg >> 8) & 255))}${hex(mix(b, bg & 255))}`;
+  };
+
   const startPinch = () => {
     const [a, b] = [...touchesRef.current.values()];
     if (!a || !b) return;
@@ -426,7 +464,7 @@ export function CanvasStage({
     point: { x: number; y: number },
   ) => {
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capture(event);
     gestureRef.current = { kind: "pan", pointerId: event.pointerId, last: point };
     setPanning(true);
   };
@@ -437,6 +475,19 @@ export function CanvasStage({
     if (event.pointerType === "touch") {
       touchesRef.current.set(event.pointerId, point);
       if (touchesRef.current.size >= 2) {
+        const tap = tapRef.current;
+        if (!tap) {
+          tapRef.current = {
+            startedAt: performance.now(),
+            fingers: touchesRef.current.size,
+            moved: false,
+            startView: viewRef.current,
+            starts: new Map(touchesRef.current),
+          };
+        } else {
+          tap.fingers = Math.max(tap.fingers, touchesRef.current.size);
+          tap.starts.set(event.pointerId, point);
+        }
         // A second finger means zoom/pan. A stroke that only just started was the first
         // finger of the pinch, so drop it; an established stroke is kept.
         const live = liveRef.current;
@@ -462,8 +513,14 @@ export function CanvasStage({
       return;
     }
     if (liveRef.current || (event.pointerType === "mouse" && event.button !== 0)) return;
+    // Eyedropper: armed from the Color panel, or Alt + click on desktop.
+    if (eyedropper || (event.altKey && event.pointerType !== "touch")) {
+      event.preventDefault();
+      onPickColor(sampleColor(point));
+      return;
+    }
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capture(event);
     begin({ ...toDoc(event), p: pressureOf(event) }, event.pointerId);
   };
 
@@ -472,6 +529,9 @@ export function CanvasStage({
     if (event.pointerType !== "touch") setHover(point);
     if (event.pointerType === "touch" && touchesRef.current.has(event.pointerId)) {
       touchesRef.current.set(event.pointerId, point);
+      const tap = tapRef.current;
+      const start = tap?.starts.get(event.pointerId);
+      if (tap && start && Math.hypot(point.x - start.x, point.y - start.y) > 14) tap.moved = true;
     }
 
     const gesture = gestureRef.current;
@@ -526,7 +586,17 @@ export function CanvasStage({
       if (gestureRef.current?.kind === "pinch" && touchesRef.current.size < 2) {
         gestureRef.current = null;
       }
-      if (touchesRef.current.size === 0) suppressTouchRef.current = false;
+      if (touchesRef.current.size === 0) {
+        suppressTouchRef.current = false;
+        const tap = tapRef.current;
+        tapRef.current = null;
+        // Quick multi-finger tap that didn't move: undo (2 fingers) or redo (3).
+        if (tap && !tap.moved && performance.now() - tap.startedAt < 350) {
+          setView(tap.startView);
+          if (tap.fingers === 2) onUndoGesture();
+          else if (tap.fingers >= 3) onRedoGesture();
+        }
+      }
     }
     const gesture = gestureRef.current;
     if (gesture?.kind === "pan" && gesture.pointerId === event.pointerId) {
@@ -594,7 +664,7 @@ export function CanvasStage({
 
   const onLineDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    capture(event);
     lineButtonDown.current = { at: performance.now(), usedForLine: false };
     setLineHeld(true);
   };
@@ -644,7 +714,9 @@ export function CanvasStage({
       )}
       <canvas
         ref={canvasRef}
-        className={`stage__canvas ${handMode ? "is-hand" : ""} ${panning ? "is-panning" : ""}`}
+        className={`stage__canvas ${handMode ? "is-hand" : ""} ${panning ? "is-panning" : ""} ${
+          eyedropper ? "is-eyedropper" : ""
+        }`}
         data-testid="drawing-canvas"
         tabIndex={0}
         role="application"
@@ -688,7 +760,7 @@ export function CanvasStage({
           })}
         </svg>
       )}
-      {hover && !keyboardActive && !handMode && !panning && (
+      {hover && !keyboardActive && !handMode && !panning && !eyedropper && (
         <span
           className="stage__ring"
           aria-hidden="true"
@@ -811,6 +883,16 @@ export function CanvasStage({
       </p>
     </div>
   );
+}
+
+/** Pointer capture keeps a stroke going if the pointer leaves the canvas. Some browsers throw
+ * for pointers they consider inactive; drawing still works without it. */
+function capture(event: React.PointerEvent<Element>) {
+  try {
+    event.currentTarget.setPointerCapture(event.pointerId);
+  } catch {
+    /* not essential */
+  }
 }
 
 /** Device-pixel render target for a view. */

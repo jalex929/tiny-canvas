@@ -220,18 +220,34 @@ export const BRUSHES: Record<BrushId, BrushDefinition> = {
     label: "Neon",
     hint: "Glowing tube light. Try it on a dark background",
     composite: "source-over",
-    defaultSize: 16,
+    defaultSize: 24,
     options: [
       { key: "glow", label: "Glow", min: 0.2, max: 3, step: 0.1, default: 1, format: percent },
     ],
     paint: ({ ctx, stroke, pixelScale }) => {
+      // Soft light, built in layers: a wide faint halo, a blurred tube, then a pale core
+      // that is itself slightly blurred, so no edge reads as a hard line.
       const width = stroke.size * averagePressureScale(stroke);
+      const glow = optionValue(stroke, "glow");
+      const blur = (amount: number) => amount * width * glow * pixelScale;
       ctx.shadowColor = stroke.color;
-      ctx.shadowBlur = width * 1.4 * optionValue(stroke, "glow") * pixelScale;
-      strokePath(ctx, stroke, width * 0.6, stroke.color);
-      strokePath(ctx, stroke, width * 0.45, stroke.color);
+
+      ctx.globalAlpha = 0.3;
+      ctx.shadowBlur = blur(4);
+      strokePath(ctx, stroke, width * 1.1, stroke.color);
+      ctx.shadowBlur = blur(2.4);
+      strokePath(ctx, stroke, width * 0.8, stroke.color);
+
+      ctx.globalAlpha = 0.6;
+      ctx.shadowBlur = blur(1.4);
+      strokePath(ctx, stroke, width * 0.5, stroke.color);
+
+      ctx.globalAlpha = 1;
+      ctx.shadowColor = tint(stroke.color, 0.4);
+      ctx.shadowBlur = blur(0.5);
+      strokePath(ctx, stroke, width * 0.22, tint(stroke.color, 0.45));
+      ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
-      strokePath(ctx, stroke, width * 0.2, tint(stroke.color, 0.75));
     },
   },
   rainbow: {

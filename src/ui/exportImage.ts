@@ -42,12 +42,7 @@ export function exportSize(scene: { width: number; height: number }) {
   return { width: scene.width * EXPORT_SCALE, height: scene.height * EXPORT_SCALE };
 }
 
-export async function downloadImage(
-  scene: Scene,
-  format: ImageFormat,
-  title: string,
-  transparent = false,
-): Promise<void> {
+async function renderBlob(scene: Scene, format: ImageFormat, transparent: boolean) {
   // JPG has no transparency, so it always gets the background.
   const canvas = renderScene(scene, exportSize(scene).width, {
     transparent: format === "png" && transparent,
@@ -56,10 +51,52 @@ export async function downloadImage(
     canvas.toBlob(resolve, `image/${format}`, 0.92),
   );
   if (!blob) throw new Error("The image couldn't be created.");
+  return blob;
+}
+
+const fileName = (title: string, format: ImageFormat) =>
+  `${fileSlug(title)}.${format === "jpeg" ? "jpg" : "png"}`;
+
+/**
+ * True where the system share sheet can take image files (most phones and tablets). There,
+ * "Share" reaches Photos, Messages and other apps, which is usually what people want.
+ */
+export function canShareImages(): boolean {
+  try {
+    if (typeof navigator.canShare !== "function") return false;
+    const probe = new File([new Blob([""], { type: "image/png" })], "probe.png", {
+      type: "image/png",
+    });
+    return navigator.canShare({ files: [probe] });
+  } catch {
+    return false;
+  }
+}
+
+/** Opens the share sheet. Returns false if the person closed it without sharing. */
+export async function shareImage(scene: Scene, format: ImageFormat, title: string) {
+  const blob = await renderBlob(scene, format, false);
+  const file = new File([blob], fileName(title, format), { type: blob.type });
+  try {
+    await navigator.share({ files: [file], title });
+    return true;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") return false;
+    throw error;
+  }
+}
+
+export async function downloadImage(
+  scene: Scene,
+  format: ImageFormat,
+  title: string,
+  transparent = false,
+): Promise<void> {
+  const blob = await renderBlob(scene, format, transparent);
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${fileSlug(title)}.${format === "jpeg" ? "jpg" : "png"}`;
+  link.download = fileName(title, format);
   document.body.append(link);
   link.click();
   link.remove();

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BRUSHES, defaultOptions } from "./engine/brushes";
 import { canRedo, canUndo, commit, createHistory, redo, sceneFrom, undo } from "./engine/history";
 import type { PressureCurve } from "./engine/pressure";
+import { SYMMETRY_INFO } from "./engine/symmetry";
 import {
   BRUSH_IDS,
   CANVAS_SHAPES,
@@ -18,15 +19,26 @@ import { compactStroke, type DrawingStore, type DrawingSummary } from "./storage
 import { CanvasStage, type StrokeTemplate } from "./ui/CanvasStage";
 import { DrawingsDialog } from "./ui/DrawingsDialog";
 import { ExportMenu } from "./ui/ExportMenu";
-import { downloadImage, exportSize, thumbnail, type ImageFormat } from "./ui/exportImage";
+import {
+  canShareImages,
+  downloadImage,
+  exportSize,
+  shareImage,
+  thumbnail,
+  type ImageFormat,
+} from "./ui/exportImage";
+import { colorName } from "./ui/palette";
 import { Icon } from "./ui/Icon";
 import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
+  BackgroundPanel,
   BrushOptionsPanel,
   BrushPicker,
   CanvasPanel,
   ColorPanel,
-  EffectsPanel,
+  Section,
+  SizePanel,
+  SymmetryPanel,
   SIZE_MAX,
   SIZE_MIN,
   ShortcutsHelp,
@@ -46,15 +58,16 @@ interface DrawingMeta {
 
 const LAST_OPEN_KEY = "tiny-canvas:last-open";
 const GUIDES_KEY = "tiny-canvas:show-guides";
+const TAP_TIP_KEY = "tiny-canvas:tip-two-finger-undo";
 const PHONE_QUERY = "(max-width: 900px)";
 
-/** New drawings start square on phones and landscape 4:3 on bigger screens. */
+/** New drawings start portrait (3:4) on phones and landscape (4:3) on bigger screens. */
 function deviceDefaultSize(): CanvasSize {
   const phone =
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
     window.matchMedia(PHONE_QUERY).matches;
-  const shape = CANVAS_SHAPES.find((c) => c.id === (phone ? "square" : "landscape"))!;
+  const shape = CANVAS_SHAPES.find((c) => c.id === (phone ? "portrait" : "landscape"))!;
   return { ...shape.size };
 }
 
@@ -122,6 +135,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [pressureCurve, setPressureCurve] = useState<PressureCurve>("normal");
   const [penOnlySetting, setPenOnlySetting] = useState(true);
   const [penDetected, setPenDetected] = useState(false);
+  const [eyedropper, setEyedropper] = useState(false);
   const [showGuides, setShowGuidesState] = useState(() => safeStorage.get(GUIDES_KEY) !== "off");
   const setShowGuides = (value: boolean) => {
     setShowGuidesState(value);
@@ -284,12 +298,27 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const apply = useCallback((action: Action) => setHistory((h) => commit(h, action)), []);
 
   const onCommit = useCallback(
-    (stroke: Stroke) => apply({ type: "stroke", stroke: compactStroke(stroke) }),
-    [apply],
+    (stroke: Stroke) => {
+      apply({ type: "stroke", stroke: compactStroke(stroke) });
+      // Teach the gesture once, right after someone's first mark on a phone.
+      if (isPhone && !safeStorage.get(TAP_TIP_KEY)) {
+        safeStorage.set(TAP_TIP_KEY, "shown");
+        setMessage({ text: "Tip: tap with two fingers to undo, three to redo." });
+      }
+    },
+    [apply, isPhone],
   );
 
   const doUndo = useCallback(() => setHistory(undo), []);
   const doRedo = useCallback(() => setHistory(redo), []);
+  const gestureUndo = useCallback(() => {
+    setHistory(undo);
+    setMessage({ text: "Undone" });
+  }, []);
+  const gestureRedo = useCallback(() => {
+    setHistory(redo);
+    setMessage({ text: "Redone" });
+  }, []);
 
   const clear = () => {
     apply({ type: "clear" });
@@ -340,6 +369,24 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   const onPenDetected = useCallback(() => setPenDetected(true), []);
 
+  const onPickColor = useCallback(
+    (hex: string) => {
+      pickColor(hex);
+      setEyedropper(false);
+      setMessage({ text: `Picked ${colorName(hex).replace(/^custom color/, "")}`.trim() });
+    },
+    [pickColor],
+  );
+
+  const shareCurrent = async (format: ImageFormat) => {
+    try {
+      const shared = await shareImage(scene, format, meta.title);
+      if (shared) setMessage({ text: "Shared." });
+    } catch {
+      setMessage({ text: "Sharing didn't work here. Try Download instead." });
+    }
+  };
+
   // --- Keyboard shortcuts --------------------------------------------------------------------
 
   useEffect(() => {
@@ -384,11 +431,52 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     unavailable: "Saving is off in this browser. Download to keep a copy.",
   };
 
+  const brushOptionsPanel = (
+    <BrushOptionsPanel brush={brush} values={options} onChange={setOption} />
+  );
+  const brushPicker = (
+    <BrushPicker brush={brush} color={color} options={brushOptions} onChange={setBrush} />
+  );
+  const symmetryPanel = (hideHeading: boolean) => (
+    <SymmetryPanel
+      symmetry={symmetry}
+      onSymmetry={setSymmetry}
+      showGuides={showGuides}
+      onShowGuides={setShowGuides}
+      hideHeading={hideHeading}
+    />
+  );
+  const backgroundPanel = (hideHeading: boolean) => (
+    <BackgroundPanel
+      background={scene.background}
+      onBackground={(hex) => apply({ type: "background", color: hex })}
+      color={color}
+      hideHeading={hideHeading}
+    />
+  );
+  const sizePanel = (compact: boolean) => (
+    <SizePanel
+      size={size}
+      onSize={setSize}
+      opacity={opacity}
+      onOpacity={setOpacity}
+      color={color === "#ffffff" ? "#d9d9e5" : color}
+      compact={compact}
+    />
+  );
+  const shapeLabel = CANVAS_SHAPES.find((c) => c.id === shapeId)?.label ?? "Custom";
+
   const panels = {
-    brush: (
+    // On phones, the selected brush's options come first: no scrolling past 12 tiles.
+    brush: isPhone ? (
       <>
-        <BrushPicker brush={brush} color={color} options={brushOptions} onChange={setBrush} />
-        <BrushOptionsPanel brush={brush} values={options} onChange={setOption} />
+        {brushOptionsPanel}
+        {brushPicker}
+      </>
+    ) : (
+      <>
+        {brushPicker}
+        {brushOptionsPanel}
       </>
     ),
     color: (
@@ -398,22 +486,15 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         onHexDraft={setHexDraft}
         recent={recent}
         onPick={pickColor}
+        eyedropper={eyedropper}
+        onEyedropper={setEyedropper}
       />
     ),
     effects: (
-      <EffectsPanel
-        size={size}
-        onSize={setSize}
-        opacity={opacity}
-        onOpacity={setOpacity}
-        symmetry={symmetry}
-        onSymmetry={setSymmetry}
-        showGuides={showGuides}
-        onShowGuides={setShowGuides}
-        background={scene.background}
-        onBackground={(hex) => apply({ type: "background", color: hex })}
-        color={color}
-      />
+      <>
+        {symmetryPanel(false)}
+        {backgroundPanel(false)}
+      </>
     ),
     canvas: (
       <CanvasPanel
@@ -437,6 +518,10 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       pressureCurve={pressureCurve}
       penOnly={penOnlySetting && penDetected}
       onPenDetected={onPenDetected}
+      eyedropper={eyedropper}
+      onPickColor={onPickColor}
+      onUndoGesture={gestureUndo}
+      onRedoGesture={gestureRedo}
       onCommit={onCommit}
       onAnnounce={(text) => setMessage({ text })}
     />
@@ -515,7 +600,12 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             <Icon name="shelf" />
             <span className="button__text">My drawings</span>
           </button>
-          <ExportMenu disabled={false} size={exportSize(scene)} onExport={exportImage} />
+          <ExportMenu
+            disabled={false}
+            size={exportSize(scene)}
+            onExport={exportImage}
+            onShare={canShareImages() ? shareCurrent : undefined}
+          />
         </div>
       </header>
 
@@ -528,7 +618,8 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
             brush={brush}
             color={color}
             symmetry={symmetry}
-            shape={CANVAS_SHAPES.find((c) => c.id === shapeId)?.label ?? "Custom"}
+            shape={shapeLabel}
+            quickBar={sizePanel(true)}
             canUndo={canUndo(history)}
             canRedo={canRedo(history)}
             onUndo={doUndo}
@@ -541,9 +632,22 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           <div className="panel panel--brushes">{panels.brush}</div>
           {stage}
           <div className="panel panel--settings" role="region" aria-label="Color and effects">
+            {sizePanel(false)}
             {panels.color}
-            {panels.effects}
-            {panels.canvas}
+            <Section
+              id="symmetry"
+              title="Symmetry"
+              summary={SYMMETRY_INFO[symmetry].label}
+              defaultOpen
+            >
+              {symmetryPanel(true)}
+            </Section>
+            <Section id="background" title="Background">
+              {backgroundPanel(true)}
+            </Section>
+            <Section id="canvas" title="Canvas & pen" summary={shapeLabel}>
+              {panels.canvas}
+            </Section>
             <ShortcutsHelp />
           </div>
         </main>

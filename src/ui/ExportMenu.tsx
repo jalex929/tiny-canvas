@@ -7,10 +7,12 @@ interface Props {
   /** Pixel size of the downloaded image. */
   size: { width: number; height: number };
   onExport: (format: ImageFormat, transparent: boolean) => Promise<void>;
+  /** Present where the system share sheet supports images (phones, tablets). */
+  onShare?: (format: ImageFormat) => Promise<void>;
 }
 
 /** "Download" disclosure: pick PNG or JPG, optionally a transparent PNG. */
-export function ExportMenu({ disabled, size, onExport }: Props) {
+export function ExportMenu({ disabled, size, onExport, onShare }: Props) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<ImageFormat>("png");
   const [transparent, setTransparent] = useState(false);
@@ -103,6 +105,25 @@ export function ExportMenu({ disabled, size, onExport }: Props) {
           <button type="submit" className="button button--primary button--block" disabled={busy}>
             {busy ? "Preparing…" : `Download ${format === "jpeg" ? "JPG" : "PNG"}`}
           </button>
+          {onShare && (
+            <button
+              type="button"
+              className="button button--block"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await onShare(format);
+                  setOpen(false);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Icon name="share" />
+              <span>Share or save to Photos</span>
+            </button>
+          )}
           <p className="export__note">
             {size.width} × {size.height} pixels
           </p>

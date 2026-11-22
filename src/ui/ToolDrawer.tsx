@@ -19,12 +19,14 @@ interface Props {
   onUndo: () => void;
   onRedo: () => void;
   panels: Record<DrawerTab, ReactNode>;
+  /** Always-visible size and opacity, the most-changed settings. */
+  quickBar: ReactNode;
 }
 
 const TAB_TITLES: Record<DrawerTab, string> = {
   brush: "Brushes",
   color: "Color",
-  effects: "Size and effects",
+  effects: "Symmetry and background",
   canvas: "Canvas and pen",
 };
 
@@ -35,6 +37,7 @@ const TAB_TITLES: Record<DrawerTab, string> = {
 export function ToolDrawer(props: Props) {
   const { tab, onTab, brush, color, symmetry, shape, canUndo, canRedo, onUndo, onRedo, panels } =
     props;
+  const { quickBar } = props;
   const sheetRef = useRef<HTMLDivElement>(null);
   const toggle = (next: DrawerTab) => onTab(tab === next ? null : next);
 
@@ -66,7 +69,7 @@ export function ToolDrawer(props: Props) {
       id: "effects",
       icon: "sliders",
       label: "Effects",
-      detail: symmetry === "none" ? "Size" : SYMMETRY_INFO[symmetry].label,
+      detail: symmetry === "none" ? "Symmetry" : SYMMETRY_INFO[symmetry].label,
     },
     { id: "canvas", icon: "frame", label: "Canvas", detail: shape },
   ];
@@ -95,6 +98,7 @@ export function ToolDrawer(props: Props) {
           {panels[tab]}
         </div>
       )}
+      {quickBar}
       <nav className="drawer__bar" aria-label="Tools">
         <div className="drawer__history">
           <button
