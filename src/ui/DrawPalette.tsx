@@ -174,7 +174,8 @@ export function DrawPalette(props: Props) {
                 <ShapeIcon kind={props.shapeKind} />
               </span>
               <span className="draw-tile__label">
-                Shape <span aria-hidden="true">▾</span>
+                Shape
+                <span className="draw-tile__more" aria-hidden="true" />
                 <kbd aria-hidden="true">U</kbd>
               </span>
             </button>

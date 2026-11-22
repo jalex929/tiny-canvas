@@ -472,3 +472,50 @@ test("spirograph ring can be moved and resized with its handles", async ({ page,
   await page.keyboard.press("ArrowUp");
   expect((await frame.boundingBox())!.width).toBeGreaterThan(moved.width + 5);
 });
+
+/** Text that sticks out of its tile (ellipsis-truncated text is allowed). */
+async function overflowingText(page: Page) {
+  return page.evaluate(() => {
+    const tiles = document.querySelectorAll(
+      ".draw-tile, .shape-menu__kind > span, .symmetry-tile__body, .segmented-row__option > span, .chip > span, .panel-tabs__tab, .drawer__tab, .shape-tile__body, .picker, .button",
+    );
+    const bad: string[] = [];
+    for (const tile of tiles) {
+      const box = tile.getBoundingClientRect();
+      if (box.width === 0) continue;
+      const walker = document.createTreeWalker(tile, NodeFilter.SHOW_TEXT);
+      let node: Node | null;
+      while ((node = walker.nextNode())) {
+        const parent = node.parentElement!;
+        if (!node.textContent?.trim() || parent.closest(".visually-hidden")) continue;
+        if (getComputedStyle(parent).textOverflow === "ellipsis") continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const t = range.getBoundingClientRect();
+        if (t.width && (t.right > box.right + 1 || t.left < box.left - 1)) {
+          bad.push(node.textContent.trim());
+        }
+      }
+    }
+    return bad;
+  });
+}
+
+test("no tile text spills out of its tile", async ({ page, isMobile }) => {
+  expect(await overflowingText(page)).toEqual([]);
+  if (isMobile) {
+    await page.getByRole("button", { name: /^Draw/ }).click();
+    expect(await overflowingText(page)).toEqual([]);
+    await page.getByRole("button", { name: /^Effects/ }).click();
+    expect(await overflowingText(page)).toEqual([]);
+    await page.getByRole("button", { name: /^Canvas/ }).click();
+  } else {
+    await page.getByRole("tab", { name: /Paper/ }).click();
+    expect(await overflowingText(page)).toEqual([]);
+    await page.getByRole("tab", { name: /Pen/ }).click();
+  }
+  expect(await overflowingText(page)).toEqual([]);
+  if (isMobile) await page.getByRole("button", { name: /^Draw/ }).click();
+  await page.getByRole("button", { name: /^Shape/ }).click();
+  expect(await overflowingText(page)).toEqual([]);
+});

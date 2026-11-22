@@ -3289,3 +3289,35 @@ input[type="range"] {
 .panel--settings .hex-field input {
   width: 78px;
 }
+
+/* Shape tile: a small corner marker says "opens a menu" without taking label space. */
+.draw-tile {
+  position: relative;
+}
+
+.draw-tile__more {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--navy);
+}
+
+/* Very narrow phones: keep every label inside its tile. */
+@media (max-width: 400px) {
+  .drawer__sheet .draw-tile {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .drawer__sheet .draw-tile__label {
+    font-size: 10.5px;
+  }
+  .shape-menu__kind small,
+  .shape-menu--phone .shape-menu__kind small {
+    font-size: 9.5px;
+    letter-spacing: -0.2px;
+  }
+}
