@@ -27,7 +27,7 @@ interface Props {
 }
 
 const TAB_TITLES: Record<DrawerTab, string> = {
-  brush: "Tools",
+  brush: "Draw",
   color: "Color",
   effects: "Symmetry and background",
   canvas: "Lines, pen and canvas",
@@ -59,7 +59,7 @@ export function ToolDrawer(props: Props) {
     {
       id: "brush",
       icon: "brush",
-      label: "Tools",
+      label: "Draw",
       detail: props.toolLabel || BRUSHES[brush].label,
     },
     {

@@ -34,18 +34,16 @@ import {
 } from "./ui/exportImage";
 import { colorName } from "./ui/palette";
 import { Icon } from "./ui/Icon";
+import { DrawPalette } from "./ui/DrawPalette";
 import { MoreMenu } from "./ui/MoreMenu";
 import { PanelTabs } from "./ui/PanelTabs";
 import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
   FillPanel,
-  ShapePanel,
   SpiroPanel,
-  ToolPicker,
   type Tool,
   BackgroundPanel,
   BrushOptionsPanel,
-  BrushPicker,
   CanvasPanel,
   ColorPanel,
   SizePanel,
@@ -448,8 +446,15 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   };
 
   /** Fill tool: work out the area and add it as one undoable step. */
-  const onFill = (point: { x: number; y: number }) => {
-    const result = computeFill(scene, point.x, point.y, color, FILL_TOLERANCE_INFO.normal.value);
+  const onFill = (point: { x: number; y: number }, slop: number) => {
+    const result = computeFill(
+      scene,
+      point.x,
+      point.y,
+      color,
+      FILL_TOLERANCE_INFO.normal.value,
+      slop,
+    );
     if (result.kind === "same-color") {
       setMessage({ text: "That area is already this color." });
       return;
@@ -472,9 +477,10 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   };
 
   /** Picking a brush while filling switches back to drawing. */
+  /** Picking a brush tile means drawing with it. */
   const chooseBrush = useCallback((id: BrushId) => {
     setBrush(id);
-    setTool((t) => (t === "fill" ? "brush" : t));
+    setTool("brush");
   }, []);
 
   const changeShape = (id: CanvasShapeId) => {
@@ -555,11 +561,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     unavailable: "Saving is off in this browser. Download to keep a copy.",
   };
 
-  // Filled shapes and the fill tool are solid color, so the brush list steps aside.
-  const usesBrush =
-    tool === "brush" ||
-    tool === "spiro" ||
-    (tool === "shape" && !(shapeFilled && SHAPE_INFO[shapeKind].canFill));
   const toolLabel =
     tool === "fill"
       ? "Fill"
@@ -571,15 +572,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
 
   const brushOptionsPanel = (
     <BrushOptionsPanel brush={brush} values={options} onChange={setOption} collapsible={!isPhone} />
-  );
-  const brushPicker = (
-    <BrushPicker
-      brush={brush}
-      color={color}
-      options={brushOptions}
-      onChange={chooseBrush}
-      compact={!isPhone && tool !== "brush"}
-    />
   );
   const symmetryPanel = (hideHeading: boolean, compact = false) => (
     <SymmetryPanel
@@ -632,44 +624,52 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const panels = {
     // On phones, the selected brush's options come first: no scrolling past 12 tiles.
     // Tool, then that tool's settings, then the brush (used by Brush and by shape outlines).
-    brush: (
-      <>
-        <ToolPicker tool={tool} onTool={setTool} />
-        {tool === "shape" && (
-          <ShapePanel
-            kind={shapeKind}
-            onKind={setShapeKind}
-            filled={shapeFilled}
-            onFilled={setShapeFilled}
-            compact={isPhone}
-          />
-        )}
-        {tool === "spiro" && (
-          <SpiroPanel
-            wheel={spiroWheel}
-            onWheel={setSpiroWheel}
-            hole={spiroHole}
-            onHole={setSpiroHole}
-            hasRing={!!spiroRing}
-            onDrawFull={drawFullSpiro}
-            onNewRing={() => setSpiroRing(null)}
-          />
-        )}
-        {tool === "fill" && <FillPanel />}
-        {usesBrush &&
-          (isPhone ? (
-            <>
-              {brushOptionsPanel}
-              {brushPicker}
-            </>
-          ) : (
-            <>
-              {brushPicker}
-              {brushOptionsPanel}
-            </>
-          ))}
-      </>
-    ),
+    // The Draw palette, then settings for whatever is selected. On phones the settings come
+    // first, so they're at the top of the sheet.
+    brush: (() => {
+      const palette = (
+        <DrawPalette
+          tool={tool}
+          brush={brush}
+          color={color}
+          options={brushOptions}
+          onBrush={chooseBrush}
+          onTool={setTool}
+          shapeKind={shapeKind}
+          onShapeKind={setShapeKind}
+          shapeFilled={shapeFilled}
+          onShapeFilled={setShapeFilled}
+        />
+      );
+      const settings = (
+        <>
+          {tool === "spiro" && isPhone && (
+            <SpiroPanel
+              wheel={spiroWheel}
+              onWheel={setSpiroWheel}
+              hole={spiroHole}
+              onHole={setSpiroHole}
+              hasRing={!!spiroRing}
+              onDrawFull={drawFullSpiro}
+              onNewRing={() => setSpiroRing(null)}
+            />
+          )}
+          {tool === "fill" && <FillPanel />}
+          {tool === "brush" && brushOptionsPanel}
+        </>
+      );
+      return isPhone ? (
+        <>
+          {settings}
+          {palette}
+        </>
+      ) : (
+        <>
+          {palette}
+          {settings}
+        </>
+      );
+    })(),
     color: (
       <ColorPanel
         color={color}
@@ -703,6 +703,19 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       onSpiroRing={setSpiroRing}
       onFill={onFill}
       showSizePreview={sizePreview}
+      contextBar={
+        tool === "spiro" && !isPhone ? (
+          <SpiroPanel
+            wheel={spiroWheel}
+            onWheel={setSpiroWheel}
+            hole={spiroHole}
+            onHole={setSpiroHole}
+            hasRing={!!spiroRing}
+            onDrawFull={drawFullSpiro}
+            onNewRing={() => setSpiroRing(null)}
+          />
+        ) : null
+      }
       compact={isPhone}
       quiet={isPhone && drawerTab !== null}
       penOnly={penOnlySetting && penDetected}

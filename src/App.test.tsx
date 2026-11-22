@@ -55,13 +55,13 @@ describe("App", () => {
   it("switches brushes from the keyboard", async () => {
     render(<App store={null} />);
     await userEvent.keyboard("5");
-    expect(screen.getByRole("radio", { name: "Spray" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Spray" })).toHaveAttribute("aria-pressed", "true");
     await userEvent.keyboard("0");
-    expect(screen.getByRole("radio", { name: "Rainbow" })).toBeChecked();
-    expect(screen.queryByRole("radio", { name: "Threads" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Rainbow" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: /^Threads/ })).toBeNull();
     await userEvent.keyboard("e");
-    expect(screen.getByRole("radio", { name: "Eraser" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Eraser" })).toHaveAttribute("aria-pressed", "true");
     await userEvent.keyboard("e");
-    expect(screen.getByRole("radio", { name: "Pen" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Pen" })).toHaveAttribute("aria-pressed", "true");
   });
 });

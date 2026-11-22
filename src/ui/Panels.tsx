@@ -350,11 +350,12 @@ export function SpiroPanel({
       <h2 className="panel__heading">
         Spirograph <span className="panel__heading-value">{spiroLoops(wheel)} loops</span>
       </h2>
-      <p className="control__note control__note--top">
-        {hasRing
-          ? "Drag around the ring to turn the wheel. Stop, switch colors, keep turning."
-          : "Drag on the canvas to place the ring (or tap for a medium one)."}
-      </p>
+      {!hasRing && (
+        <p className="control__note control__note--top">
+          Drag on the canvas to place the ring (or tap for a medium one), then drag around it to
+          turn the wheel.
+        </p>
+      )}
       <label className="slider">
         <span className="slider__label">
           Wheel <span className="slider__value">{wheel} teeth</span>

@@ -11,8 +11,18 @@ export const MIN_SYMMETRY_COUNT = 2;
 export const MAX_SYMMETRY_COUNT = 16;
 /** Tile repeats the drawing on a grid of thirds. */
 const TILE_DIVISIONS = 3;
-/** Each spiral copy is this much smaller than the one before. */
-const SPIRAL_SHRINK = 0.86;
+/**
+ * Spiral: each copy turns a little (not a full share of the circle, which would just be
+ * radial) and gets smaller, so the copies trail inward like a vortex arm.
+ */
+const SPIRAL_SHRINK = 0.85;
+const SPIRAL_STEP = Math.PI / 6;
+/** Tunnel: each copy this much smaller, straight toward the center. */
+const TUNNEL_SHRINK = 0.78;
+/** Bloom: size of the inner ring of petals. */
+const BLOOM_INNER = 0.55;
+/** Echo: each copy steps this fraction of the canvas down and right. */
+const ECHO_STEP = 0.035;
 
 export const SYMMETRY_INFO: Record<
   SymmetryMode,
@@ -34,13 +44,33 @@ export const SYMMETRY_INFO: Record<
   },
   spiral: {
     label: "Spiral",
-    description: "Each copy turned and shrunk toward the center, like a vortex",
+    description: "Copies trail inward, each turned a little and smaller, like a vortex",
+    usesCount: true,
+  },
+  tunnel: {
+    label: "Tunnel",
+    description: "Copies shrink straight toward the center, like looking down a tunnel",
+    usesCount: true,
+  },
+  bloom: {
+    label: "Bloom",
+    description: "Two rings of petals: an outer ring and a smaller inner ring between them",
     usesCount: true,
   },
   tile: {
     label: "Tile",
     description: "Repeated across the canvas like wallpaper",
     usesCount: false,
+  },
+  quilt: {
+    label: "Quilt",
+    description: "Tiled with every other square mirrored, like a quilt or folded paper",
+    usesCount: false,
+  },
+  echo: {
+    label: "Echo",
+    description: "Copies step down and to the right, like a motion trail",
+    usesCount: true,
   },
 };
 
@@ -53,7 +83,8 @@ export const clampCount = (n: number | undefined) =>
 export function symmetryLabel(mode: SymmetryMode, count?: number): string {
   const info = SYMMETRY_INFO[mode];
   if (!info.usesCount) return info.label;
-  const copies = mode === "kaleidoscope" ? clampCount(count) * 2 : clampCount(count);
+  const doubled = mode === "kaleidoscope" || mode === "bloom";
+  const copies = doubled ? clampCount(count) * 2 : clampCount(count);
   return `${info.label} ×${copies}`;
 }
 
@@ -84,7 +115,42 @@ export function symmetryMatrices(
         return [rotation, multiply(rotation, flipX)];
       });
     case "spiral":
-      return range(n).map((k) => turnAbout(cx, cy, (2 * Math.PI * k) / n, SPIRAL_SHRINK ** k));
+      return range(n).map((k) => turnAbout(cx, cy, SPIRAL_STEP * k, SPIRAL_SHRINK ** k));
+    case "tunnel":
+      return range(n).map((k) => turnAbout(cx, cy, 0, TUNNEL_SHRINK ** k));
+    case "bloom":
+      return range(n).flatMap((k) => [
+        turnAbout(cx, cy, (2 * Math.PI * k) / n),
+        turnAbout(cx, cy, (2 * Math.PI * (k + 0.5)) / n, BLOOM_INNER),
+      ]);
+    case "echo": {
+      const stepX = width * ECHO_STEP;
+      const stepY = height * ECHO_STEP;
+      return range(n).map((k): Matrix => [1, 0, 0, 1, k * stepX, k * stepY]);
+    }
+    case "quilt": {
+      // Like tile, but odd columns flip left-right and odd rows flip top-bottom.
+      const stepX = width / TILE_DIVISIONS;
+      const stepY = height / TILE_DIVISIONS;
+      const reach = TILE_DIVISIONS - 1;
+      const out: Matrix[] = [IDENTITY];
+      for (let i = -reach; i <= reach; i++) {
+        for (let j = -reach; j <= reach; j++) {
+          if (i === 0 && j === 0) continue;
+          const flipCol = Math.abs(i) % 2 === 1;
+          const flipRow = Math.abs(j) % 2 === 1;
+          out.push([
+            flipCol ? -1 : 1,
+            0,
+            0,
+            flipRow ? -1 : 1,
+            flipCol ? (i + 1) * stepX : i * stepX,
+            flipRow ? (j + 1) * stepY : j * stepY,
+          ]);
+        }
+      }
+      return out;
+    }
     case "tile": {
       // Enough copies that a mark anywhere repeats across the whole canvas.
       const stepX = width / TILE_DIVISIONS;
@@ -142,11 +208,36 @@ export function symmetryGuideLines(
     case "quad":
       return [fullLine(0), fullLine(Math.PI / 2)];
     case "radial":
-    case "spiral":
       return range(n).map((k) => ray(-Math.PI / 2 + (2 * Math.PI * k) / n));
+    case "spiral":
+      // One spoke per copy, each shorter, tracing the inward spiral.
+      return range(n).map((k) => {
+        const angle = -Math.PI / 2 + SPIRAL_STEP * k;
+        const reach = (Math.min(width, height) / 2) * SPIRAL_SHRINK ** k;
+        return {
+          x1: cx,
+          y1: cy,
+          x2: cx + Math.cos(angle) * reach,
+          y2: cy + Math.sin(angle) * reach,
+        };
+      });
     case "kaleidoscope":
       // Mirror axes of a turn-and-flip pattern sit at half the turning angle.
       return range(n).map((k) => fullLine(Math.PI / 2 + (Math.PI * k) / n));
+    case "bloom":
+      return range(n * 2).map((k) => ray(-Math.PI / 2 + (Math.PI * k) / n));
+    case "tunnel": {
+      const arm = Math.min(width, height) * 0.04;
+      return [
+        { x1: cx - arm, y1: cy, x2: cx + arm, y2: cy },
+        { x1: cx, y1: cy - arm, x2: cx, y2: cy + arm },
+      ];
+    }
+    case "echo": {
+      const steps = (n - 1) * ECHO_STEP;
+      return [{ x1: 0, y1: 0, x2: width * steps, y2: height * steps }];
+    }
+    case "quilt":
     case "tile": {
       const lines: GuideLine[] = [];
       for (let k = 1; k < TILE_DIVISIONS; k++) {

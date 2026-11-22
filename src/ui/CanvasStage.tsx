@@ -13,6 +13,7 @@ import {
 } from "../engine/render";
 import { SHAPE_INFO, shapePoints, type ShapeKind } from "../engine/shapes";
 import {
+  SPIRO_RING_TEETH,
   angleDelta,
   penAt,
   spiroArc,
@@ -60,12 +61,14 @@ interface Props {
   spiro: { ring: SpiroRing | null; gear: SpiroGear };
   onSpiroRing: (ring: SpiroRing | null) => void;
   shape: ShapeSettings;
-  /** Fill tool: fill the area at this document point. */
-  onFill: (point: { x: number; y: number }) => void;
+  /** Fill tool: fill the area at this document point; `slop` is a finger's width in doc px. */
+  onFill: (point: { x: number; y: number }, slop: number) => void;
   /** Briefly shows the true brush size in the middle of the canvas (while it changes). */
   showSizePreview: boolean;
   /** Phone layout: pinch replaces zoom buttons, and the Line button is icon-only. */
   compact: boolean;
+  /** Settings for the current tool, shown as a slim bar over the top of the canvas. */
+  contextBar?: React.ReactNode;
   /** A tool sheet is open: hide floating controls and hints so the small canvas stays clear. */
   quiet: boolean;
   /** When a stylus is in use, fingers only move and zoom (palm rejection). */
@@ -158,6 +161,7 @@ export function CanvasStage({
   onSpiroRing,
   onFill,
   showSizePreview,
+  contextBar,
   compact,
   quiet,
   penOnly,
@@ -220,11 +224,75 @@ export function CanvasStage({
   const [placingRing, setPlacingRing] = useState<SpiroRing | null>(null);
   const placingRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const spiroTurnRef = useRef<{ pointerId: number; last: number } | null>(null);
+  /** Where the pointer wants the wheel; the wheel glides there a little each frame. */
+  const spiroTargetRef = useRef(0);
+  const spiroGlideRef = useRef(0);
+  // A brand-new ring starts with the wheel at the top; moving or resizing keeps your place.
+  const hadRing = useRef(false);
   useEffect(() => {
-    // A new ring starts with the wheel back at the top.
-    spiroAngleRef.current = -Math.PI / 2;
-    setSpiroAngle(-Math.PI / 2);
+    const has = !!spiro.ring;
+    if (has && !hadRing.current) {
+      spiroAngleRef.current = -Math.PI / 2;
+      setSpiroAngle(-Math.PI / 2);
+    }
+    hadRing.current = has;
   }, [spiro.ring]);
+
+  /** Dragging a ring handle: move the whole ring, or resize it from a corner. */
+  const handleRef = useRef<{
+    kind: "move" | "resize";
+    pointerId: number;
+    start: { x: number; y: number };
+    ring: SpiroRing;
+  } | null>(null);
+  const onHandleDown =
+    (kind: "move" | "resize") => (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (!spiro.ring) return;
+      event.preventDefault();
+      event.stopPropagation();
+      capture(event);
+      handleRef.current = {
+        kind,
+        pointerId: event.pointerId,
+        start: toDoc(event),
+        ring: spiro.ring,
+      };
+    };
+  const onHandleMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const h = handleRef.current;
+    if (!h || h.pointerId !== event.pointerId) return;
+    const p = toDoc(event);
+    if (h.kind === "move") {
+      onSpiroRing({ ...h.ring, x: h.ring.x + p.x - h.start.x, y: h.ring.y + p.y - h.start.y });
+    } else {
+      // Corners sit on a square around the ring, so the radius is the larger offset.
+      const r = Math.max(Math.abs(p.x - h.ring.x), Math.abs(p.y - h.ring.y));
+      onSpiroRing({ ...h.ring, r: Math.max(40, r) });
+    }
+  };
+  const onHandleUp = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (handleRef.current?.pointerId === event.pointerId) handleRef.current = null;
+  };
+  /** Keyboard: arrows move the ring (move handle) or grow/shrink it (corner handles). */
+  const onHandleKey = (kind: "move" | "resize") => (event: React.KeyboardEvent) => {
+    if (!spiro.ring) return;
+    const step = event.shiftKey ? 50 : 10;
+    const ring = spiro.ring;
+    const moves: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const move = moves[event.key];
+    if (!move) return;
+    event.preventDefault();
+    if (kind === "move") onSpiroRing({ ...ring, x: ring.x + move[0], y: ring.y + move[1] });
+    else {
+      const grow = event.key === "ArrowUp" || event.key === "ArrowRight" ? step : -step;
+      onSpiroRing({ ...ring, r: Math.max(40, ring.r + grow) });
+    }
+  };
 
   const templateRef = useRef(template);
   templateRef.current = template;
@@ -399,6 +467,8 @@ export function CanvasStage({
       // forever and no frame would ever be scheduled again.
       cancelAnimationFrame(frameRef.current);
       frameRef.current = 0;
+      cancelAnimationFrame(spiroGlideRef.current);
+      spiroGlideRef.current = 0;
       if (settleRef.current) clearTimeout(settleRef.current);
     },
     [],
@@ -560,6 +630,34 @@ export function CanvasStage({
     return `#${hex(mix(r, (bg >> 16) & 255))}${hex(mix(g, (bg >> 8) & 255))}${hex(mix(b, bg & 255))}`;
   };
 
+  /** Rolls the wheel to `to`, drawing the true curve on the way. */
+  const advanceSpiro = (to: number) => {
+    const live = liveRef.current;
+    const ring = spiro.ring;
+    const from = spiroAngleRef.current;
+    if (!live || !ring || to === from) return;
+    live.stroke.points.push(...spiroArc(ring, spiro.gear, from, to).slice(1));
+    spiroAngleRef.current = to;
+    setSpiroAngle(to);
+    requestFrame();
+  };
+
+  /**
+   * Each frame the wheel covers a share of the way to where the pointer is. Pointer events
+   * arrive unevenly; this turns them into an even, gear-like glide. The drawn line is always
+   * on the exact curve, only its pace is smoothed.
+   */
+  const glideSpiro = () => {
+    spiroGlideRef.current = 0;
+    const gap = spiroTargetRef.current - spiroAngleRef.current;
+    if (Math.abs(gap) < 0.0015) {
+      advanceSpiro(spiroTargetRef.current);
+      return;
+    }
+    advanceSpiro(spiroAngleRef.current + gap * 0.35);
+    spiroGlideRef.current = requestAnimationFrame(glideSpiro);
+  };
+
   const startPinch = () => {
     const [a, b] = [...touchesRef.current.values()];
     if (!a || !b) return;
@@ -633,7 +731,7 @@ export function CanvasStage({
     }
     event.preventDefault();
     if (tool === "fill") {
-      onFill(toDoc(event));
+      onFill(toDoc(event), (event.pointerType === "touch" ? 14 : 6) / viewRef.current.s);
       return;
     }
     capture(event);
@@ -649,6 +747,7 @@ export function CanvasStage({
         pointerId: event.pointerId,
         last: Math.atan2(p.y - ring.y, p.x - ring.x),
       };
+      spiroTargetRef.current = spiroAngleRef.current;
       begin(penAt(ring, spiro.gear, spiroAngleRef.current), event.pointerId);
       return;
     }
@@ -725,13 +824,9 @@ export function CanvasStage({
       const p = toDoc(event);
       if (Math.hypot(p.x - ring.x, p.y - ring.y) < ring.r * SPIRO_DEAD_ZONE) return;
       const angle = Math.atan2(p.y - ring.y, p.x - ring.x);
-      const from = spiroAngleRef.current;
-      const to = from + angleDelta(turn.last, angle);
+      spiroTargetRef.current += angleDelta(turn.last, angle);
       turn.last = angle;
-      live.stroke.points.push(...spiroArc(ring, spiro.gear, from, to).slice(1));
-      spiroAngleRef.current = to;
-      setSpiroAngle(to);
-      requestFrame();
+      if (!spiroGlideRef.current) spiroGlideRef.current = requestAnimationFrame(glideSpiro);
       return;
     }
     if (live.shapeStart) {
@@ -803,6 +898,10 @@ export function CanvasStage({
     const live = liveRef.current;
     if (spiroTurnRef.current?.pointerId === event.pointerId) {
       spiroTurnRef.current = null;
+      // Land exactly where the pointer was let go, then finish the stroke.
+      cancelAnimationFrame(spiroGlideRef.current);
+      spiroGlideRef.current = 0;
+      advanceSpiro(spiroTargetRef.current);
       finish(!!live && live.stroke.points.length > 1);
       return;
     }
@@ -921,7 +1020,7 @@ export function CanvasStage({
             background: scene.background,
           }}
         >
-          {isEmpty && !quiet && (
+          {isEmpty && !quiet && !(tool === "spiro" && spiro.ring) && (
             <p className="stage__empty" aria-hidden="true">
               <span>Draw anywhere.</span> Pick a brush and a color, then make a mess.
             </p>
@@ -979,6 +1078,58 @@ export function CanvasStage({
           scale={view.s}
         />
       )}
+      {tool === "spiro" &&
+        ready &&
+        spiro.ring &&
+        !placingRing &&
+        !quiet &&
+        (() => {
+          const c = toStage(spiro.ring);
+          const R = spiro.ring.r * view.s;
+          return (
+            <>
+              <span
+                className="spiro-frame"
+                aria-hidden="true"
+                style={{ left: c.left - R, top: c.top - R, width: R * 2, height: R * 2 }}
+              />
+              {(
+                [
+                  [-1, -1, "top left"],
+                  [1, -1, "top right"],
+                  [-1, 1, "bottom left"],
+                  [1, 1, "bottom right"],
+                ] as const
+              ).map(([sx, sy, where]) => (
+                <button
+                  key={where}
+                  type="button"
+                  className="spiro-handle spiro-handle--corner"
+                  style={{ left: c.left + sx * R, top: c.top + sy * R }}
+                  aria-label={`Resize ring (${where} corner). Arrow keys make it bigger or smaller.`}
+                  onPointerDown={onHandleDown("resize")}
+                  onPointerMove={onHandleMove}
+                  onPointerUp={onHandleUp}
+                  onPointerCancel={onHandleUp}
+                  onKeyDown={onHandleKey("resize")}
+                />
+              ))}
+              <button
+                type="button"
+                className="spiro-handle spiro-handle--move"
+                style={{ left: c.left, top: c.top + R + (compact ? 34 : 26) }}
+                aria-label="Move ring. Arrow keys move it."
+                onPointerDown={onHandleDown("move")}
+                onPointerMove={onHandleMove}
+                onPointerUp={onHandleUp}
+                onPointerCancel={onHandleUp}
+                onKeyDown={onHandleKey("move")}
+              >
+                <Icon name="move" />
+              </button>
+            </>
+          );
+        })()}
       {hover &&
         !keyboardActive &&
         !handMode &&
@@ -1018,6 +1169,7 @@ export function CanvasStage({
         />
       )}
 
+      {contextBar && !quiet && <div className="context-bar">{contextBar}</div>}
       <div
         className={`line-tool ${compact ? "line-tool--compact" : ""}`}
         hidden={quiet || tool !== "brush"}
@@ -1191,10 +1343,19 @@ function SpiroOverlay({
     <svg className="spiro-overlay" aria-hidden="true">
       <circle className="spiro-overlay__under" cx={center.x} cy={center.y} r={ring.r * scale} />
       <circle className="spiro-overlay__ring" cx={center.x} cy={center.y} r={ring.r * scale} />
+      <Teeth
+        cx={center.x}
+        cy={center.y}
+        r={ring.r * scale}
+        teeth={SPIRO_RING_TEETH}
+        turn={0}
+        outward
+      />
       <circle className="spiro-overlay__center" cx={center.x} cy={center.y} r={3} />
       {!placing && (
         <g>
           <circle className="spiro-overlay__wheel" cx={wc.x} cy={wc.y} r={wheelR} />
+          <Teeth cx={wc.x} cy={wc.y} r={wheelR} teeth={gear.wheel} turn={spin} />
           <line className="spiro-overlay__spoke" x1={wc.x} y1={wc.y} x2={tick.x} y2={tick.y} />
           <line className="spiro-overlay__arm" x1={wc.x} y1={wc.y} x2={pen.x} y2={pen.y} />
           <circle className="spiro-overlay__pen" cx={pen.x} cy={pen.y} r={5} />
@@ -1202,6 +1363,37 @@ function SpiroOverlay({
       )}
     </svg>
   );
+}
+
+/** Gear teeth as short ticks around a circle; `turn` spins them with the wheel. */
+function Teeth({
+  cx,
+  cy,
+  r,
+  teeth,
+  turn,
+  outward = false,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  teeth: number;
+  turn: number;
+  outward?: boolean;
+}) {
+  // Skip teeth when they'd be closer than ~4px apart; the ring still reads as a gear.
+  const step = Math.max(1, Math.ceil(teeth / Math.max(8, (Math.PI * 2 * r) / 4)));
+  const depth = Math.min(6, Math.max(2.5, r * 0.04));
+  const d: string[] = [];
+  for (let k = 0; k < teeth; k += step) {
+    const a = turn + (k / teeth) * Math.PI * 2;
+    const r1 = outward ? r : r - depth;
+    const r2 = outward ? r + depth : r;
+    d.push(
+      `M${(cx + Math.cos(a) * r1).toFixed(1)} ${(cy + Math.sin(a) * r1).toFixed(1)}L${(cx + Math.cos(a) * r2).toFixed(1)} ${(cy + Math.sin(a) * r2).toFixed(1)}`,
+    );
+  }
+  return <path className="spiro-overlay__teeth" d={d.join("")} />;
 }
 
 /** Device-pixel render target for a view. */

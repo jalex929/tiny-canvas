@@ -22,7 +22,9 @@ describe("symmetry", () => {
     symmetryMatrices(mode, DOC_WIDTH, DOC_HEIGHT);
 
   it("produces the expected number of copies, original first", () => {
-    expect(SYMMETRY_MODES.map((m) => copies(m).length)).toEqual([1, 2, 4, 6, 12, 6, 25]);
+    expect(SYMMETRY_MODES.map((m) => copies(m).length)).toEqual([
+      1, 2, 4, 6, 12, 6, 6, 12, 25, 25, 6,
+    ]);
     expect(symmetryMatrices("radial", DOC_WIDTH, DOC_HEIGHT, 9)).toHaveLength(9);
     expect(symmetryMatrices("kaleidoscope", DOC_WIDTH, DOC_HEIGHT, 3)).toHaveLength(6);
     for (const mode of SYMMETRY_MODES) {
@@ -240,14 +242,56 @@ describe("new symmetry modes", () => {
       const p = applyMatrix(m!, cx + 400, cy);
       return Math.hypot(p.x - cx, p.y - cy);
     };
-    expect(dist(second)).toBeCloseTo(400 * 0.86);
-    expect(dist(third)).toBeCloseTo(400 * 0.86 * 0.86);
+    expect(dist(second)).toBeCloseTo(400 * 0.85);
+    expect(dist(third)).toBeCloseTo(400 * 0.85 * 0.85);
+  });
+
+  it("spiral is not radial: copies turn a little each, so they trail instead of ringing", () => {
+    const spiral = symmetryMatrices("spiral", DOC_WIDTH, DOC_HEIGHT, 6);
+    const radial = symmetryMatrices("radial", DOC_WIDTH, DOC_HEIGHT, 6);
+    const angleOf = (m: (typeof spiral)[number]) => {
+      const p = applyMatrix(m, DOC_WIDTH / 2 + 400, DOC_HEIGHT / 2);
+      return Math.atan2(p.y - DOC_HEIGHT / 2, p.x - DOC_WIDTH / 2);
+    };
+    expect(angleOf(spiral[1]!)).toBeCloseTo(Math.PI / 6);
+    expect(angleOf(radial[1]!)).toBeCloseTo(Math.PI / 3);
   });
 
   it("tile repeats a mark across the whole canvas", () => {
     const copies = symmetryMatrices("tile", 1500, 1200).map((m) => applyMatrix(m, 100, 100));
     expect(copies).toContainEqual({ x: 600, y: 500 });
     expect(copies).toContainEqual({ x: 1100, y: 900 });
+  });
+
+  it("tunnel copies shrink straight in without turning", () => {
+    const [, second] = symmetryMatrices("tunnel", DOC_WIDTH, DOC_HEIGHT, 6);
+    const p = applyMatrix(second!, DOC_WIDTH / 2 + 400, DOC_HEIGHT / 2);
+    expect(p.y).toBeCloseTo(DOC_HEIGHT / 2);
+    expect(p.x - DOC_WIDTH / 2).toBeCloseTo(400 * 0.78);
+  });
+
+  it("bloom makes an inner ring of smaller petals between the outer ones", () => {
+    const m = symmetryMatrices("bloom", DOC_WIDTH, DOC_HEIGHT, 6);
+    const inner = applyMatrix(m[1]!, DOC_WIDTH / 2 + 400, DOC_HEIGHT / 2);
+    const d = Math.hypot(inner.x - DOC_WIDTH / 2, inner.y - DOC_HEIGHT / 2);
+    expect(d).toBeCloseTo(400 * 0.55);
+    expect(Math.atan2(inner.y - DOC_HEIGHT / 2, inner.x - DOC_WIDTH / 2)).toBeCloseTo(Math.PI / 6);
+  });
+
+  it("quilt mirrors neighboring squares", () => {
+    const copies = symmetryMatrices("quilt", 1500, 1200).map((m) => applyMatrix(m, 100, 100));
+    expect(copies[0]).toEqual({ x: 100, y: 100 });
+    expect(copies).toContainEqual({ x: 900, y: 100 }); // mirrored into the next column
+    expect(copies).toContainEqual({ x: 1100, y: 900 }); // plain copy two over and two down
+  });
+
+  it("echo steps copies diagonally", () => {
+    const pts = symmetryMatrices("echo", 1000, 1000, 3).map((m) => applyMatrix(m, 100, 100));
+    expect(pts).toEqual([
+      { x: 100, y: 100 },
+      { x: 135, y: 135 },
+      { x: 170, y: 170 },
+    ]);
   });
 
   it("guides match the mode", () => {

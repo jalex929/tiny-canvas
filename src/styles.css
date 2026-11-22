@@ -2835,3 +2835,360 @@ input[type="range"] {
 .symmetry__header .check input {
   margin: 0;
 }
+
+/* ---------- Draw palette (brushes + tools) ---------- */
+
+.draw-palette {
+  display: grid;
+  gap: 8px;
+}
+
+.draw-palette > .panel__heading {
+  margin-bottom: 0;
+}
+
+.draw-group__label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy-60);
+}
+
+.draw-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.draw-tile {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px 5px;
+  border: 1.5px solid var(--navy-15);
+  border-radius: var(--radius-small);
+  background: var(--white);
+  text-align: left;
+  cursor: pointer;
+}
+
+.draw-tile:hover {
+  border-color: var(--navy-60);
+}
+
+.draw-tile[aria-pressed="true"] {
+  border: 2px solid var(--navy);
+  background: var(--yellow-soft);
+  padding: 3.5px 5.5px 4.5px;
+}
+
+.draw-tile__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.draw-tile__label kbd {
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.draw-tile--tool .draw-tile__icon {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 400 / 96;
+  color: var(--navy);
+}
+
+.draw-tile--tool .draw-tile__icon .icon,
+.draw-tile--tool .draw-tile__icon .shape-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.draw-tile-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.app--phone kbd {
+  display: none;
+}
+
+/* Shape submenu */
+.shape-menu {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: 240px;
+  padding: 12px;
+  background: var(--white);
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px -16px rgb(0 0 82 / 0.45);
+}
+
+.shape-menu__kinds {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.shape-menu__kinds legend {
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.shape-menu__kind {
+  position: relative;
+}
+
+.shape-menu__kind input {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.shape-menu__kind > span {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 0 4px;
+  border: 1.5px solid var(--navy-15);
+  border-radius: var(--radius-small);
+}
+
+.shape-menu__kind small {
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.shape-menu__kind input:checked + span {
+  border: 2px solid var(--navy);
+  background: var(--yellow-soft);
+  padding: 5.5px 0 3.5px;
+}
+
+.shape-menu__kind input:focus-visible + span {
+  box-shadow: var(--focus);
+}
+
+.shape-menu .segmented-row__option span {
+  font-size: 11px;
+  padding: 6px 4px;
+}
+
+/* ---------- Spirograph ring handles ---------- */
+
+.spiro-frame {
+  position: absolute;
+  border: 1.5px dashed rgb(0 0 82 / 0.45);
+  pointer-events: none;
+}
+
+.spiro-handle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 2px solid var(--navy);
+  background: var(--white);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.spiro-handle--corner {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
+
+.spiro-handle--corner:nth-of-type(1),
+.spiro-handle--corner:nth-of-type(4) {
+  cursor: nwse-resize;
+}
+
+.spiro-handle--move {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: move;
+}
+
+.spiro-handle--move .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.spiro-handle:hover {
+  background: var(--yellow-soft);
+}
+
+.spiro-handle:focus-visible {
+  box-shadow: var(--focus);
+}
+
+/* Bigger targets for fingers. */
+.app--phone .spiro-handle--corner {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.app--phone .spiro-handle--move {
+  width: 40px;
+  height: 40px;
+}
+
+/* ---------- Eleven symmetry modes ---------- */
+
+.symmetry--compact .symmetry-grid,
+.panel--settings .symmetry--compact .symmetry-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.drawer__sheet .symmetry-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ---------- Contextual bar over the canvas (desktop spirograph settings) ---------- */
+
+.context-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: min(760px, calc(100% - 24px));
+  padding: 8px 12px;
+  background: var(--white);
+  border: 1.5px solid var(--navy);
+  border-radius: 14px;
+  box-shadow: 0 10px 24px -14px rgb(0 0 82 / 0.5);
+}
+
+.context-bar .spiro-panel {
+  display: grid;
+  grid-template-columns: auto minmax(110px, 1fr) minmax(110px, 1fr) auto;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.context-bar .spiro-panel .panel__heading {
+  grid-row: 1;
+}
+
+.context-bar .spiro-panel .control__note {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin: 0;
+  font-size: 11px;
+}
+
+.context-bar .spiro-panel__actions {
+  flex-wrap: nowrap;
+}
+
+/* ---------- Size and opacity on one line each (desktop) ---------- */
+
+.panel--settings .size-panel .slider {
+  grid-template-columns: 58px minmax(0, 1fr) 40px;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.panel--settings .size-panel .slider__label {
+  display: contents;
+}
+
+.panel--settings .size-panel .slider__label .slider__value {
+  grid-column: 3;
+  grid-row: 1;
+  text-align: right;
+}
+
+.panel--settings .size-panel input[type="range"] {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.panel--settings .size-panel {
+  row-gap: 4px;
+}
+
+.spiro-overlay__teeth {
+  stroke: var(--navy);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.stage__canvas.is-tool-spiro:active {
+  cursor: grabbing;
+}
+
+/* ---------- Phone: Draw sheet ---------- */
+
+/* The sheet is already titled "Draw". */
+.drawer__sheet #draw-heading {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* Four tiles per row: two pairs side by side. */
+.drawer__sheet .draw-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.drawer__sheet .draw-palette {
+  gap: 6px;
+}
+
+.drawer__sheet .draw-tile__label {
+  font-size: 11px;
+}
+
+/* The shape menu opens as a card above the tab bar, never clipped by the sheet. */
+.app--phone .shape-menu {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: auto;
+  bottom: calc(150px + env(safe-area-inset-bottom));
+  width: auto;
+}
+
+.app--phone .shape-menu__kind small {
+  font-size: 11px;
+}
+
+/* Phone spirograph sheet: two sliders side by side. */
+.drawer__sheet .spiro-panel {
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
+}
+
+.drawer__sheet .spiro-panel > .panel__heading,
+.drawer__sheet .spiro-panel > .control__note,
+.drawer__sheet .spiro-panel__actions {
+  grid-column: 1 / -1;
+}

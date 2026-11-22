@@ -67,7 +67,11 @@ export const SYMMETRY_MODES = [
   "radial",
   "kaleidoscope",
   "spiral",
+  "tunnel",
+  "bloom",
   "tile",
+  "quilt",
+  "echo",
 ] as const;
 export type SymmetryMode = (typeof SYMMETRY_MODES)[number];
 

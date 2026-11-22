@@ -8,7 +8,8 @@ themselves in your browser, with no account needed.
 
 ## Features
 
-- **Tools:** Brush, Shape, Fill and Spirograph (B / U / G / S).
+- **One Draw palette:** brushes in even pairs (Ink, Paint & glow, Playful), then Tools: Shape ▾
+  (opens a menu: shape and Outline/Filled), Fill, Spirograph and Eraser. Keys B / U / G / S.
 - **Brushes (grouped, in pairs):** _Draw_: Pen, Pencil (darker with pressure), Marker
   (multiplies where it overlaps), Calligraphy. _Paint & glow_: Spray, Neon. _Playful_:
   Sparkle, Hearts, Pattern (zigzag, waves, dots, candy stripes), Rainbow. _Clean up_: Eraser.
@@ -16,11 +17,14 @@ themselves in your browser, with no account needed.
 - **Shapes:** rectangle, ellipse, triangle, star, heart, as outlines in your current brush or
   solid fills. Drag to draw; Shift keeps proportions, Alt draws from the center.
 - **Spirograph (works like the toy):** drag to place the ring (or tap for a medium one); the
-  ring and wheel appear on the canvas. Drag around the ring to turn the wheel: the pen draws
-  exactly as far as you turn, in either direction, with your current brush. Stop, change
-  color or brush, and keep turning; each turn is one undo step. Swap wheels (24–72 teeth; the
-  loop count follows the gear ratio) and pen holes; "Draw full pattern" finishes it in one go.
-- **Fill:** tap an area to fill it. The area is stored as a
+  toothed ring and wheel appear on the canvas. Drag around the ring to turn the wheel: it
+  glides smoothly toward your pointer while the pen draws the exact curve, in either
+  direction, with your current brush. Stop, change color or brush, and keep turning; each turn
+  is one undo step. Move the ring with the grip below it and resize it from any corner (arrow
+  keys work on both); your place in the pattern is kept. Swap wheels (24–72 teeth; the loop
+  count follows the gear ratio) and pen holes; "Draw full pattern" finishes it in one go.
+- **Fill:** tap an area to fill it, tap a filled area to recolor it, or tap a line to recolor that
+  line (taps on a line's soft edge snap to the line). The area is stored as a
   run-encoded mask at document resolution, so it stays sharp at any zoom, undoes in one step
   and saves with the drawing; it grows one pixel under line edges so no halo shows.
 - **Brush options:** nib angle (Calligraphy), density (Spray), glow (Neon), spacing and
@@ -40,7 +44,8 @@ themselves in your browser, with no account needed.
   Off; readings are smoothed. Once a stylus is detected, "Only the pen draws" (on by default)
   makes fingers pan and zoom instead of drawing (palm rejection).
 - **Effects:** symmetry off / mirror / mirror ×4 / radial / kaleidoscope / spiral (each copy
-  turned and shrunk) / tile (wallpaper repeat), with 2–16 copies for the turning modes, each shown as a
+  turned and shrunk) / tunnel / bloom / tile (wallpaper repeat) / quilt (mirrored tiles) / echo (diagonal trail),
+  with 2–16 copies for the modes that use a count, each shown as a
   picture drawn by the engine; optional guide lines on the canvas (never exported); size; opacity;
   background: 12 presets or any color (picker or hex); a drag in the color picker is one undo step.
 - **Color:** 40 named swatches, native color picker, hex entry, recent colors.

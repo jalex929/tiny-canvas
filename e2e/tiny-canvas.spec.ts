@@ -51,7 +51,7 @@ test("draw, undo, redo, clear and undo the clear", async ({ page, isMobile }) =>
 test("toolbar works from the keyboard, including drawing", async ({ page, isMobile }) => {
   test.skip(isMobile, "keyboard flow");
   await page.keyboard.press("6"); // Neon
-  await expect(page.getByRole("radio", { name: /Neon/ })).toBeChecked();
+  await expect(page.getByRole("button", { name: /^Neon/ })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("radio", { name: "Cobalt" }).check();
 
   const canvas = page.getByTestId("drawing-canvas");
@@ -152,13 +152,13 @@ test("phone drawer: starts portrait; pick hearts and a symmetry, then draw", asy
 }) => {
   test.skip(!isMobile, "phone only");
   await expect(page.getByRole("button", { name: /^Canvas/ })).toContainText("Portrait");
-  await page.getByRole("button", { name: /^Tools/ }).click();
-  await page.getByRole("radio", { name: "Hearts" }).check();
+  await page.getByRole("button", { name: /^Draw/ }).click();
+  await page.getByRole("button", { name: /^Hearts/ }).click();
   await page.getByRole("button", { name: /Effects/ }).click();
   await page.getByRole("radio", { name: "Mirror ×4" }).check();
   await expect(page.getByRole("button", { name: /Effects/ })).toContainText("Mirror ×4");
   await page.getByRole("button", { name: "Close tools" }).click();
-  await expect(page.getByRole("button", { name: /^Tools/ })).toContainText("Hearts");
+  await expect(page.getByRole("button", { name: /^Draw/ })).toContainText("Hearts");
   const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
   await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.4);
   await expect.poll(() => inkedPixels(page)).toBeGreaterThan(200);
@@ -315,8 +315,9 @@ test("shapes and the fill tool", async ({ page, isMobile }) => {
   };
 
   // A tap with the shape tool draws nothing; a drag draws the outline.
-  await page.keyboard.press("u");
-  await page.getByRole("radio", { name: "Rectangle" }).check();
+  await page.getByRole("button", { name: /^Shape/ }).click();
+  await page.getByRole("radio", { name: "Rectangle" }).click(); // picking closes the menu
+  await expect(page.getByRole("dialog", { name: "Choose a shape" })).toBeHidden();
   await page.mouse.click(box.x + 300, box.y + 300);
   await expect(page.getByRole("button", { name: "Clear" })).toBeDisabled();
   await drag(150, 150, 350, 300);
@@ -395,4 +396,79 @@ test("spirograph: place a ring, turn the wheel by dragging, draw the full patter
 
   await page.getByRole("button", { name: "New ring" }).click();
   await expect(page.locator(".spiro-overlay__wheel")).toHaveCount(0);
+});
+
+test("fill recolors a filled area and recolors a line, each without touching the other", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop");
+  const canvas = page.getByTestId("drawing-canvas");
+  const box = (await canvas.boundingBox())!;
+  const colorAt = (x: number, y: number) =>
+    canvas.evaluate(
+      (el, [px, py]) => {
+        const c = el as HTMLCanvasElement;
+        const r = c.getBoundingClientRect();
+        const s = c.width / r.width;
+        const d = c
+          .getContext("2d")!
+          .getImageData(Math.round(px! * s), Math.round(py! * s), 1, 1).data;
+        return [d[0], d[1], d[2]];
+      },
+      [x, y],
+    );
+
+  // A thick navy ring.
+  await page.getByRole("slider", { name: /^Size/ }).fill("14");
+  await page.getByRole("button", { name: /^Shape/ }).click();
+  await page.getByRole("radio", { name: "Ellipse" }).click();
+  await page.mouse.move(box.x + 200, box.y + 150);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 400, box.y + 350, { steps: 8 });
+  await page.mouse.up();
+  const lineX = 200; // the middle of the ellipse's left edge
+  const lineY = 250;
+  const inside = [300, 250] as const;
+
+  await page.keyboard.press("g");
+  await page.getByRole("radio", { name: "Lab yellow" }).check();
+  await page.mouse.click(box.x + inside[0], box.y + inside[1]);
+  await expect.poll(() => colorAt(...inside)).toEqual([255, 210, 63]);
+
+  // Refill the same area pink: the area changes, the navy line stays.
+  await page.getByRole("radio", { name: "Bubblegum" }).check();
+  await page.mouse.click(box.x + inside[0], box.y + inside[1]);
+  await expect.poll(() => colorAt(...inside)).toEqual([255, 111, 181]);
+  expect(await colorAt(lineX, lineY)).toEqual([0, 0, 82]);
+
+  // Dump teal on the line itself: the line changes, the pink inside stays.
+  await page.getByRole("radio", { name: "Teal" }).check();
+  await page.mouse.click(box.x + lineX, box.y + lineY);
+  await expect.poll(() => colorAt(lineX, lineY)).toEqual([46, 196, 182]);
+  expect(await colorAt(...inside)).toEqual([255, 111, 181]);
+});
+
+test("spirograph ring can be moved and resized with its handles", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop");
+  const box = (await page.getByTestId("drawing-canvas").boundingBox())!;
+  await page.keyboard.press("s");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const frame = page.locator(".spiro-frame");
+  const before = (await frame.boundingBox())!;
+
+  const move = (await page.getByRole("button", { name: /Move ring/ }).boundingBox())!;
+  await page.mouse.move(move.x + move.width / 2, move.y + move.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(move.x + move.width / 2 - 80, move.y + move.height / 2 - 20, { steps: 5 });
+  await page.mouse.up();
+  const moved = (await frame.boundingBox())!;
+  expect(moved.x).toBeCloseTo(before.x - 80, -1);
+  expect(moved.width).toBeCloseTo(before.width, 0);
+
+  // Keyboard: the corner handle grows the ring.
+  await page.getByRole("button", { name: /bottom right corner/ }).focus();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  expect((await frame.boundingBox())!.width).toBeGreaterThan(moved.width + 5);
 });
