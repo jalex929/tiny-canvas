@@ -590,29 +590,20 @@ test("medium desktop width keeps the header on one row with named icon buttons",
   }
 });
 
-test("90s look: toggles on, is remembered after a reload, and toggles back off", async ({
+test("90s mode: a visible switch that turns on, is remembered after a reload, and turns off", async ({
   page,
-  isMobile,
 }) => {
-  const look = () => page.evaluate(() => document.documentElement.dataset.look);
-  expect(await look()).toBe("clean");
-  if (isMobile) {
-    await page.getByRole("button", { name: /^More/ }).click();
-    await page.getByRole("button", { name: "90s look" }).click();
-  } else {
-    const toggle = page.getByRole("button", { name: "90s look" });
-    await expect(toggle).toHaveAttribute("aria-pressed", "false");
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
-  }
-  expect(await look()).toBe("retro");
+  // The look changes partway through the switch animation, so wait for it.
+  const look = () => expect.poll(() => page.evaluate(() => document.documentElement.dataset.look));
+  const toggle = page.getByRole("switch", { name: /90s/ });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await look().toBe("clean");
+  await toggle.click();
+  await look().toBe("retro");
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
   await page.reload();
-  expect(await look()).toBe("retro");
-  if (isMobile) {
-    await page.getByRole("button", { name: /^More/ }).click();
-    await page.getByRole("button", { name: "Clean look" }).click();
-  } else {
-    await page.getByRole("button", { name: "90s look" }).click();
-  }
-  expect(await look()).toBe("clean");
+  await look().toBe("retro");
+  await page.getByRole("switch", { name: /90s/ }).click();
+  await look().toBe("clean");
 });

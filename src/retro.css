@@ -52,8 +52,7 @@
 :root[data-look="retro"] .draw-tile__label,
 :root[data-look="retro"] .panel-tabs__label,
 :root[data-look="retro"] .button,
-:root[data-look="retro"] .icon-button,
-:root[data-look="retro"] .look-toggle {
+:root[data-look="retro"] .icon-button {
   font-family: var(--font-pixel);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -92,7 +91,6 @@
 
 :root[data-look="retro"] .button,
 :root[data-look="retro"] .icon-button,
-:root[data-look="retro"] .look-toggle,
 :root[data-look="retro"] .zoom__button,
 :root[data-look="retro"] .zoom__hand,
 :root[data-look="retro"] .chip {
@@ -110,7 +108,6 @@
 
 :root[data-look="retro"] .button:active:not(:disabled),
 :root[data-look="retro"] .icon-button:active:not(:disabled),
-:root[data-look="retro"] .look-toggle[aria-pressed="true"],
 :root[data-look="retro"] .icon-button[aria-pressed="true"],
 :root[data-look="retro"] .icon-button[aria-expanded="true"] {
   box-shadow: var(--bevel-in);
@@ -249,30 +246,92 @@
     4px 4px 0 rgb(0 0 0 / 0.4);
 }
 
-/* ---------- The toggle itself (shown in both looks) ---------- */
+/* ---------- The 90s mode switch (shown in both looks) ---------- */
 
-.look-toggle {
+.look-switch {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 6px 0 12px;
   border: 1.5px solid var(--navy);
   border-radius: 999px;
-  background: var(--white);
+  background: linear-gradient(90deg, #fff0f8, #fff7d1);
   font-family: var(--font-mono);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.look-toggle:hover {
-  background: var(--yellow-soft);
+.look-switch:hover {
+  background: linear-gradient(90deg, #ffe0f1, #fff0a8);
 }
 
-.look-toggle:focus-visible {
+.look-switch:focus-visible {
   outline: none;
   box-shadow: var(--focus);
+}
+
+.look-switch__track {
+  position: relative;
+  width: 40px;
+  height: 24px;
+  border: 1.5px solid var(--navy);
+  border-radius: 999px;
+  background: var(--navy-15);
+  transition: background 160ms var(--ease);
+}
+
+.look-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 1.5px solid var(--navy);
+  transition: transform 160ms var(--ease);
+}
+
+.look-switch[aria-checked="true"] .look-switch__track {
+  background: linear-gradient(90deg, #ff3fa4, #ffd23f);
+}
+
+.look-switch[aria-checked="true"] .look-switch__knob {
+  transform: translateX(16px);
+}
+
+/* In 90s mode the switch itself goes chunky: a square, beveled slider. */
+:root[data-look="retro"] .look-switch {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  background: var(--yellow);
+  box-shadow: var(--bevel-out);
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+:root[data-look="retro"] .look-switch__track {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  box-shadow: var(--bevel-in);
+}
+
+:root[data-look="retro"] .look-switch__knob {
+  border-radius: 0;
+  border: 2px solid var(--retro-dark);
+  background: var(--retro-face);
+  box-shadow: var(--bevel-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-switch__knob,
+  .look-switch__track {
+    transition: none;
+  }
 }
 
 /* ---------- Fit and finish ---------- */
@@ -284,8 +343,7 @@
   white-space: nowrap;
 }
 
-:root[data-look="retro"] .topbar .button,
-:root[data-look="retro"] .topbar .look-toggle {
+:root[data-look="retro"] .topbar .button {
   font-size: 11px;
 }
 
@@ -356,4 +414,196 @@
 /* The wide pixel labels leave no room for shortcut badges; shortcuts are still listed under "?". */
 :root[data-look="retro"] .draw-tile kbd {
   display: none;
+}
+
+/* ---------- Switching looks ---------- */
+
+.look-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Into 90s mode: a dithered curtain drops in steps, holds while a window "loads", then lifts. */
+.look-fx--retro {
+  display: grid;
+  place-items: center;
+  background-color: #5a26c4;
+  background-image: repeating-conic-gradient(#6b34db 0 25%, #4f1fb3 0 50%);
+  background-size: 8px 8px;
+  animation: fx-curtain 1150ms steps(1, end) forwards;
+}
+
+@keyframes fx-curtain {
+  0% {
+    clip-path: inset(0 0 100% 0);
+  }
+  6% {
+    clip-path: inset(0 0 80% 0);
+  }
+  12% {
+    clip-path: inset(0 0 55% 0);
+  }
+  18% {
+    clip-path: inset(0 0 30% 0);
+  }
+  24% {
+    clip-path: inset(0 0 8% 0);
+  }
+  30% {
+    clip-path: inset(0 0 0 0);
+  }
+  78% {
+    clip-path: inset(0 0 0 0);
+  }
+  84% {
+    clip-path: inset(25% 0 0 0);
+  }
+  90% {
+    clip-path: inset(55% 0 0 0);
+  }
+  95% {
+    clip-path: inset(82% 0 0 0);
+  }
+  100% {
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+.look-fx__window {
+  width: min(320px, 80vw);
+  padding: 0 0 14px;
+  border: 2px solid #000000;
+  background: #c0c0c0;
+  box-shadow:
+    inset -2px -2px 0 #808080,
+    inset 2px 2px 0 #ffffff,
+    6px 6px 0 rgb(0 0 0 / 0.45);
+  font-family: "Silkscreen", "Courier New", monospace;
+  color: #000000;
+  opacity: 0;
+  animation: fx-window 1150ms steps(1, end) forwards;
+}
+
+@keyframes fx-window {
+  0%,
+  30% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  34% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  38%,
+  76% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.look-fx__title {
+  margin: 0 0 12px;
+  padding: 5px 10px;
+  background: linear-gradient(90deg, #6b1fd1, #1d3bd1);
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.look-fx__text {
+  margin: 0 14px 10px;
+  font-size: 13px;
+}
+
+.look-fx__bar {
+  height: 18px;
+  margin: 0 14px;
+  padding: 2px;
+  border: 2px solid #000000;
+  background: #ffffff;
+  box-shadow: inset 2px 2px 0 #808080;
+}
+
+/* The bar fills in chunky blocks, like an old progress bar. */
+.look-fx__bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(90deg, #1d3bd1 0 10px, transparent 10px 13px);
+  animation: fx-bar 1150ms steps(1, end) forwards;
+}
+
+@keyframes fx-bar {
+  0%,
+  36% {
+    width: 0;
+  }
+  42% {
+    width: 20%;
+  }
+  50% {
+    width: 39%;
+  }
+  58% {
+    width: 61%;
+  }
+  66% {
+    width: 81%;
+  }
+  72%,
+  100% {
+    width: 100%;
+  }
+}
+
+/* Back out of 90s mode: the clean look ripples out from the switch, smooth and quick. */
+.look-fx--clean {
+  /* Cream in the middle with a ring of yellow, pink and sky at the growing edge. */
+  background: radial-gradient(
+    circle at var(--fx-x) var(--fx-y),
+    #fbfaf6 0 52%,
+    #ffd23f 60%,
+    #ff6fb5 68%,
+    #38bdf8 76%,
+    #fbfaf6 84%
+  );
+  animation: fx-ripple 640ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes fx-ripple {
+  0% {
+    clip-path: circle(0 at var(--fx-x) var(--fx-y));
+    opacity: 1;
+  }
+  40% {
+    clip-path: circle(150% at var(--fx-x) var(--fx-y));
+    opacity: 1;
+  }
+  100% {
+    clip-path: circle(150% at var(--fx-x) var(--fx-y));
+    opacity: 0;
+  }
+}
+
+/* A springy knob in the clean look; a snappy, stepped one in 90s mode. */
+.look-switch__knob {
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root[data-look="retro"] .look-switch__knob {
+  transition: transform 160ms steps(3, end);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .look-fx {
+    display: none;
+  }
+  .look-switch__knob {
+    transition: none;
+  }
 }

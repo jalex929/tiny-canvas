@@ -187,6 +187,32 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       return false;
     }
   });
+  /** The switch animation in progress: which way, and where the switch is (for the ripple). */
+  const [lookFx, setLookFx] = useState<{ to: "retro" | "clean"; x: number; y: number } | null>(
+    null,
+  );
+  const lookTimers = useRef<number[]>([]);
+  const switchLook = (next: boolean, from?: { x: number; y: number }) => {
+    lookTimers.current.forEach((t) => window.clearTimeout(t));
+    lookTimers.current = [];
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setLookFx(null);
+      setRetro(next);
+      return;
+    }
+    const at = from ?? { x: window.innerWidth / 2, y: 40 };
+    // The look changes while the animation covers the screen, then the cover lifts.
+    const [swap, end] = next ? [520, 1150] : [260, 640];
+    setLookFx({ to: next ? "retro" : "clean", ...at });
+    lookTimers.current.push(
+      window.setTimeout(() => setRetro(next), swap),
+      window.setTimeout(() => setLookFx(null), end),
+    );
+  };
+  useEffect(() => {
+    const timers = lookTimers.current;
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
   useEffect(() => {
     document.documentElement.dataset.look = retro ? "retro" : "clean";
     try {
@@ -786,6 +812,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       >
         Skip to canvas
       </a>
+      {lookFx && <LookTransition {...lookFx} />}
       <header className="topbar">
         <a className="topbar__home" href={HOME_URL} aria-label={`Back to ${HOME_LABEL}`}>
           <Icon name="arrowLeft" />
@@ -813,17 +840,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           </p>
         </div>
         <div className="topbar__actions" role="toolbar" aria-label="Drawing actions">
+          <LookSwitch on={retro} onChange={switchLook} short={isPhone} />
           {!isPhone && (
             <>
-              <button
-                type="button"
-                className="look-toggle"
-                aria-pressed={retro}
-                onClick={() => setRetro((r) => !r)}
-                title={retro ? "Back to the clean look" : "Try the 90s look"}
-              >
-                90s<span className="visually-hidden"> look</span>
-              </button>
               <ShortcutsHelp popover />
               <button
                 type="button"
@@ -850,11 +869,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           {isPhone ? (
             <MoreMenu
               items={[
-                {
-                  label: retro ? "Clean look" : "90s look",
-                  icon: "palette",
-                  onSelect: () => setRetro((r) => !r),
-                },
                 { label: "New drawing", icon: "plus", onSelect: () => void startNew() },
                 {
                   label: "My drawings",
@@ -1004,6 +1018,67 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         onDelete={(id) => void deleteDrawing(id)}
         onNew={() => void startNew()}
       />
+    </div>
+  );
+}
+
+/** The "90s mode" switch: a real on/off switch, in the top bar on every screen size. */
+function LookSwitch({
+  on,
+  onChange,
+  short,
+}: {
+  on: boolean;
+  onChange: (on: boolean, from?: { x: number; y: number }) => void;
+  short: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      className="look-switch"
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        onChange(!on, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      }}
+      title={on ? "Turn off 90s mode" : "Turn on 90s mode"}
+    >
+      <span className="look-switch__label">
+        {short ? "90s" : "90s mode"}
+        {short && <span className="visually-hidden"> mode</span>}
+      </span>
+      <span className="look-switch__track" aria-hidden="true">
+        <span className="look-switch__knob" />
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The switch animation. Into 90s mode: a dithered pixel curtain drops, a little window says
+ * "Loading 90s mode..." while a chunky bar fills, then the curtain lifts on the new look.
+ * Back out: the clean look ripples out in a circle from the switch. Decorative only.
+ */
+function LookTransition({ to, x, y }: { to: "retro" | "clean"; x: number; y: number }) {
+  if (to === "clean") {
+    return (
+      <div
+        className="look-fx look-fx--clean"
+        aria-hidden="true"
+        style={{ "--fx-x": `${x}px`, "--fx-y": `${y}px` } as React.CSSProperties}
+      />
+    );
+  }
+  return (
+    <div className="look-fx look-fx--retro" aria-hidden="true">
+      <div className="look-fx__window">
+        <p className="look-fx__title">Tiny Canvas</p>
+        <p className="look-fx__text">Loading 90s mode...</p>
+        <div className="look-fx__bar">
+          <span />
+        </div>
+      </div>
     </div>
   );
 }
