@@ -3759,3 +3759,150 @@ input[type="range"] {
   background: rgb(255 255 255 / 0.18);
   color: #ffffff;
 }
+
+/* ---------- Phone sheets, condensed (pass 4) ----------
+   The sheets were tall and roomy, and on small phones the color swatches ran off the right edge.
+   Tighter header and spacing, shorter tiles, symmetry as one swipeable strip, and swatches that
+   wrap to the width instead of overflowing. */
+
+.drawer__sheet {
+  max-height: 34dvh;
+  padding: 0 12px 10px;
+}
+
+.drawer__sheet-head {
+  padding: 6px 0 4px;
+}
+
+.drawer__sheet-head .icon-button {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.drawer__sheet-head .icon-button .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.drawer__sheet .draw-palette {
+  gap: 6px;
+}
+
+.drawer__sheet .draw-group__label {
+  margin: 0 0 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.drawer__sheet .draw-grid {
+  gap: 5px;
+}
+
+.drawer__sheet .draw-tile {
+  padding: 2px 6px 3px;
+  gap: 0;
+}
+
+.drawer__sheet .draw-tile[aria-pressed="true"] {
+  padding: 1.5px 5.5px 2.5px;
+}
+
+.drawer__sheet .draw-tile canvas,
+.drawer__sheet .draw-tile__icon {
+  max-height: 20px;
+}
+
+.drawer__sheet .draw-tile-wrap {
+  height: auto;
+}
+
+/* Symmetry: one row you swipe through, edge to edge, so all twelve fit in a single line. */
+.drawer__sheet .symmetry-grid {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 68px;
+  gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 12px;
+  margin-inline: -12px;
+  padding: 2px 12px 6px;
+  scrollbar-width: thin;
+}
+
+.drawer__sheet .symmetry-tile {
+  scroll-snap-align: start;
+}
+
+.drawer__sheet .symmetry-tile__body {
+  padding: 4px 3px;
+  gap: 2px;
+}
+
+.drawer__sheet .symmetry-tile__label {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Colors: as many columns as fit, never wider than the screen. */
+.drawer__sheet .swatches {
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 5px;
+}
+
+.app--phone .drawer__sheet .swatch {
+  min-width: 0;
+}
+
+/* Sections inside a sheet sit closer together. */
+.drawer__sheet .control + .control {
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.drawer__sheet .panel__heading {
+  margin-bottom: 6px;
+}
+
+.app--phone .drawer__sheet .segmented-row__option span {
+  padding: 8px 0;
+}
+
+/* Very small phones: the longest brush name ("Calligraphy") still fits its tile. */
+@media (max-width: 360px) {
+  .drawer__sheet .draw-tile {
+    padding-left: 4px;
+    padding-right: 3px;
+  }
+  .drawer__sheet .draw-tile[aria-pressed="true"] {
+    padding-left: 3.5px;
+    padding-right: 2.5px;
+  }
+  .drawer__sheet .draw-tile__label {
+    font-size: 10px;
+    letter-spacing: -0.15px;
+  }
+}
+
+/* Tiles never push the grid wider than the sheet; keyboard hints are hidden on phones anyway. */
+.drawer__sheet .draw-grid > * {
+  min-width: 0;
+}
+
+.drawer__sheet .draw-tile__label {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.drawer__sheet .draw-tile__label kbd {
+  display: none;
+}
+
+.drawer__sheet .draw-tile {
+  grid-template-columns: minmax(0, 1fr);
+}

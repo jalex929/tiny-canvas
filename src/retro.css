@@ -649,3 +649,15 @@
 :root[data-look="retro"] .shortcuts li {
   color: #000000;
 }
+
+/* Very small phones: the pixel font is wide, so the longest names step down a size. */
+@media (max-width: 360px) {
+  :root[data-look="retro"] .drawer__sheet .draw-tile__label {
+    font-size: 8px;
+    letter-spacing: -0.06em;
+  }
+  :root[data-look="retro"] .drawer__tab-label {
+    font-size: 9px;
+    letter-spacing: -0.02em;
+  }
+}
