@@ -81,7 +81,10 @@ test("downloads PNG and JPG", async ({ page, isMobile }) => {
   }
 });
 
-test("drawings persist across reloads and show on the shelf", async ({ page, isMobile }) => {
+test("the current drawing survives a reload; Clear starts fresh and can be undone", async ({
+  page,
+  isMobile,
+}) => {
   test.skip(isMobile, "covered on desktop");
   await page.getByLabel("Drawing title").fill("Sunset doodle");
   await drawSquiggle(page);
@@ -96,10 +99,10 @@ test("drawings persist across reloads and show on the shelf", async ({ page, isM
   await page.waitForTimeout(1500);
   expect(await inkedPixels(page)).toBeGreaterThan(before);
 
-  await page.getByRole("button", { name: "New", exact: true }).click();
+  // Clear starts fresh, and can be undone.
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect.poll(() => inkedPixels(page)).toBe(0);
-  await page.getByRole("button", { name: "My drawings" }).click();
-  await page.getByRole("button", { name: "Open Sunset doodle" }).click();
+  await page.getByRole("button", { name: "Undo" }).first().click();
   await expect.poll(() => inkedPixels(page)).toBeGreaterThan(500);
 });
 
@@ -585,7 +588,7 @@ test("medium desktop width keeps the header on one row with named icon buttons",
   await page.setViewportSize({ width: 1024, height: 768 });
   const header = (await page.locator(".topbar").boundingBox())!;
   expect(header.height).toBeLessThan(90);
-  for (const name of ["New", "My drawings", "Download"]) {
+  for (const name of ["Clear", "Download"]) {
     await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   }
 });

@@ -55,8 +55,9 @@ Same layout and controls; remembered on the device.
   background: 12 presets or any color (picker or hex); a drag in the color picker is one undo step.
 - **Color:** 40 named swatches, native color picker, hex entry, recent colors.
 - **History:** unlimited undo/redo; Clear is undoable, with an Undo button in the toast.
-- **Saving:** autosaves to this browser (IndexedDB) about 0.7 s after each change and when the
-  tab is hidden. "My drawings" shelf to reopen or delete. The last drawing reopens on load.
+- **Saving:** one drawing at a time. It autosaves to this browser (IndexedDB) about 0.7 s after
+  each change and when the tab is hidden, so a refresh brings it back. When you're done,
+  Download it or Clear it to start fresh (Clear is undoable). There's no gallery of past drawings.
 - **Zoom and pan:** 100–800%. Pinch on touch screens; trackpad pinch or Ctrl+scroll; scroll
   to pan; middle-mouse drag; Hand tool (H); + / − / F keys; zoom buttons on the canvas.
 - **Phone layout (≤900px wide):** full-screen canvas with a bottom drawer (Brush, Color,
@@ -135,8 +136,7 @@ link points to jayfox.design; set `VITE_HOME_URL` and `VITE_HOME_LABEL` to chang
   message.
 - **Browser (Playwright, `e2e/tiny-canvas.spec.ts`):** draw → undo → redo → clear → undo clear;
   keyboard brush selection + keyboard drawing; PNG and JPG downloads; persistence across reload
-  and reopening from the shelf (including a regression check that new strokes survive the
-  reload); phone emulation (Pixel 7): no horizontal scroll, touch tap draws.
+  (including a regression check that new strokes survive the reload), Clear and undo; phone emulation (Pixel 7): no horizontal scroll, touch tap draws.
 
 **Tested so far:** headless Chromium on Windows, at 1440 × 900 and emulated Pixel 7.
 **Not yet tested:** real phones, iPad/Apple Pencil, Safari, Firefox, a screen reader pass, or

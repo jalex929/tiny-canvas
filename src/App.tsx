@@ -21,9 +21,8 @@ import {
   type SymmetryMode,
 } from "./engine/types";
 import { createBrowserStore } from "./storage/browserStore";
-import { compactStroke, type DrawingStore, type DrawingSummary } from "./storage/drawing";
+import { compactStroke, type DrawingStore } from "./storage/drawing";
 import { CanvasStage, type StrokeTemplate } from "./ui/CanvasStage";
-import { DrawingsDialog } from "./ui/DrawingsDialog";
 import { ExportMenu } from "./ui/ExportMenu";
 import {
   canShareImages,
@@ -163,8 +162,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [spiroRing, setSpiroRing] = useState<SpiroRing | null>(null);
   const [lineStyle, setLineStyle] = useState<LineStyle>("solid");
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(store ? "idle" : "unavailable");
-  const [shelfOpen, setShelfOpen] = useState(false);
-  const [shelf, setShelf] = useState<DrawingSummary[] | "loading" | "error">("loading");
   const [message, setMessage] = useState<{ text: string; undo?: boolean } | null>(null);
   const [drawerTab, setDrawerTab] = useState<DrawerTab | null>(null);
   const isPhone = useMediaQuery(PHONE_QUERY);
@@ -319,70 +316,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       cancelled = true;
     };
   }, [store]);
-
-  const refreshShelf = useCallback(async () => {
-    if (!store) return setShelf("error");
-    try {
-      setShelf(await store.list());
-    } catch {
-      setShelf("error");
-    }
-  }, [store]);
-
-  const openShelf = async () => {
-    setShelfOpen(true);
-    setShelf("loading");
-    await saveNow();
-    await refreshShelf();
-  };
-
-  const startNew = async () => {
-    await saveNow();
-    setHistory(createHistory([], deviceDefaultSize()));
-    setMeta(newMeta());
-    setSaveStatus(store ? "idle" : "unavailable");
-    setShelfOpen(false);
-    setMessage({ text: "New drawing started. Your last one is on the shelf." });
-  };
-
-  const openDrawing = async (id: string) => {
-    if (id === meta.id) return setShelfOpen(false);
-    await saveNow();
-    try {
-      const drawing = await store?.get(id);
-      if (!drawing) throw new Error("missing");
-      setHistory(createHistory(drawing.actions, { width: drawing.width, height: drawing.height }));
-      setMeta({
-        id: drawing.id,
-        title: drawing.title,
-        createdAt: drawing.createdAt,
-        persisted: true,
-      });
-      safeStorage.set(LAST_OPEN_KEY, drawing.id);
-      setSaveStatus("saved");
-      setShelfOpen(false);
-      setMessage({ text: `Opened “${drawing.title}”.` });
-    } catch {
-      setMessage({ text: "That drawing couldn't be opened." });
-    }
-  };
-
-  const deleteDrawing = async (id: string) => {
-    try {
-      await store?.remove(id);
-      if (id === meta.id) {
-        if (pendingSave.current) clearTimeout(pendingSave.current);
-        pendingSave.current = null;
-        setHistory(createHistory([], deviceDefaultSize()));
-        setMeta(newMeta());
-        setSaveStatus("idle");
-      }
-      await refreshShelf();
-      setMessage({ text: "Drawing deleted." });
-    } catch {
-      setMessage({ text: "That drawing couldn't be deleted." });
-    }
-  };
 
   // --- Editing ------------------------------------------------------------------------------
 
@@ -584,7 +517,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
-      if (shouldIgnoreShortcut(event) || shelfOpen) return;
+      if (shouldIgnoreShortcut(event)) return;
       const mod = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       if (mod && key === "z") {
@@ -614,7 +547,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doRedo, doUndo, setSize, size, shelfOpen, chooseBrush]);
+  }, [doRedo, doUndo, setSize, size, chooseBrush]);
 
   useEffect(() => {
     if (!message) return;
@@ -885,13 +818,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           {isPhone ? (
             <MoreMenu
               items={[
-                { label: "New drawing", icon: "plus", onSelect: () => void startNew() },
-                {
-                  label: "My drawings",
-                  icon: "shelf",
-                  onSelect: () => void openShelf(),
-                  disabled: !store,
-                },
                 {
                   label: "Clear canvas",
                   icon: "trash",
@@ -913,27 +839,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
               >
                 <Icon name="trash" />
                 <span className="button__text">Clear</span>
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={() => void startNew()}
-                title="New drawing"
-                aria-label="New"
-              >
-                <Icon name="plus" />
-                <span className="button__text">New</span>
-              </button>
-              <button
-                type="button"
-                className="button"
-                onClick={() => void openShelf()}
-                disabled={!store}
-                title="My drawings"
-                aria-label="My drawings"
-              >
-                <Icon name="shelf" />
-                <span className="button__text">My drawings</span>
               </button>
             </>
           )}
@@ -1024,16 +929,6 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           </div>
         )}
       </div>
-
-      <DrawingsDialog
-        open={shelfOpen}
-        currentId={meta.id}
-        drawings={shelf}
-        onClose={() => setShelfOpen(false)}
-        onOpen={(id) => void openDrawing(id)}
-        onDelete={(id) => void deleteDrawing(id)}
-        onNew={() => void startNew()}
-      />
     </div>
   );
 }

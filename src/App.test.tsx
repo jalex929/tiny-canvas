@@ -48,7 +48,6 @@ describe("App", () => {
   it("says when saving is unavailable instead of failing silently", async () => {
     render(<App store={null} />);
     expect(screen.getByText(/Saving is off in this browser/)).toHaveAttribute("role", "status");
-    expect(screen.getByRole("button", { name: "My drawings" })).toBeDisabled();
     await act(async () => {});
   });
 
