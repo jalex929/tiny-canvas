@@ -591,3 +591,37 @@
     transition: none;
   }
 }
+
+/* Phones: a compact switch (small label stacked over a smaller track) so the drawing's name
+   has room in the top bar. */
+.app--phone .look-switch {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 3px 6px;
+  border-radius: 12px;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.app--phone .look-switch__track {
+  width: 32px;
+  height: 18px;
+}
+
+.app--phone .look-switch__knob {
+  top: 1.5px;
+  left: 1.5px;
+  width: 12px;
+  height: 12px;
+}
+
+.app--phone .look-switch[aria-checked="true"] .look-switch__knob {
+  transform: translateX(14px);
+}
+
+:root[data-look="retro"] .app--phone .look-switch {
+  border-radius: 0;
+  font-size: 8px;
+}

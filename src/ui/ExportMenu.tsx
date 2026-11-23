@@ -58,13 +58,14 @@ export function ExportMenu({ disabled, size, onExport, onShare }: Props) {
         type="button"
         className="button button--primary"
         aria-label="Download"
+        title="Download your drawing"
         aria-expanded={open}
         aria-controls={panelId}
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >
         <Icon name="download" />
-        <span>Download</span>
+        <span className="export__label">Download</span>
       </button>
       {open && (
         <form id={panelId} className="export__panel" onSubmit={submit}>

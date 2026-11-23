@@ -35,7 +35,7 @@ test("draw, undo, redo, clear and undo the clear", async ({ page, isMobile }) =>
   await expect(page.getByText("Draw anywhere.")).toBeVisible();
   await drawSquiggle(page);
   await expect.poll(() => inkedPixels(page)).toBeGreaterThan(500);
-  await expect(page.getByText("Saved in this browser")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Undo" }).click();
   await expect.poll(() => inkedPixels(page)).toBe(0);
@@ -85,7 +85,7 @@ test("drawings persist across reloads and show on the shelf", async ({ page, isM
   test.skip(isMobile, "covered on desktop");
   await page.getByLabel("Drawing title").fill("Sunset doodle");
   await drawSquiggle(page);
-  await expect(page.getByText("Saved in this browser")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Saved" }).first()).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Drawing title")).toHaveValue("Sunset doodle");
   await expect.poll(() => inkedPixels(page)).toBeGreaterThan(500);

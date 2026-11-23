@@ -623,9 +623,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   }, [message]);
 
   const statusText: Record<SaveStatus, string> = {
-    idle: "Saves as you draw",
+    idle: "Auto-saves",
     saving: "Saving…",
-    saved: "Saved in this browser",
+    saved: "Saved",
     error: "Couldn't save. Download to keep a copy.",
     unavailable: "Saving is off in this browser. Download to keep a copy.",
   };
@@ -825,24 +825,35 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         </a>
         <div className="topbar__title">
           <h1>Tiny Canvas</h1>
-          <label className="visually-hidden" htmlFor="drawing-title">
-            Drawing title
-          </label>
-          <input
-            id="drawing-title"
-            className="title-input"
-            title="Rename this drawing"
-            value={meta.title}
-            maxLength={80}
-            onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
-            onBlur={() =>
-              setMeta((m) => (m.title.trim() ? m : { ...m, title: "Untitled drawing" }))
-            }
-          />
-          <Icon name="pencil" />
-          <p className={`save-status is-${saveStatus}`} role="status">
-            {statusText[saveStatus]}
-          </p>
+          <div className="topbar__name">
+            <label className="visually-hidden" htmlFor="drawing-title">
+              Drawing title
+            </label>
+            <input
+              id="drawing-title"
+              className="title-input"
+              title="Rename this drawing"
+              value={meta.title}
+              maxLength={80}
+              size={Math.max(6, meta.title.length + 1)}
+              onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
+              onBlur={() =>
+                setMeta((m) => (m.title.trim() ? m : { ...m, title: "Untitled drawing" }))
+              }
+            />
+            <Icon name="pencil" />
+            <p
+              className={`save-status is-${saveStatus}`}
+              role="status"
+              title={
+                saveStatus === "saved" || saveStatus === "idle"
+                  ? "Saved in this browser as you draw"
+                  : undefined
+              }
+            >
+              {statusText[saveStatus]}
+            </p>
+          </div>
         </div>
         <div className="topbar__actions" role="toolbar" aria-label="Drawing actions">
           <LookSwitch on={retro} onChange={switchLook} short={isPhone} />

@@ -3587,3 +3587,134 @@ input[type="range"] {
     padding: 0;
   }
 }
+
+/* ---------- Header title: app name on top, the drawing's name beneath ---------- */
+
+/* "Tiny Canvas" is a small label; the drawing's name gets its own full-width line below it,
+   so it never gets squeezed. The save status sits quietly after the name. Both looks. */
+.topbar .topbar__title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0;
+  align-items: start;
+  min-width: 0;
+}
+
+.topbar .topbar__title h1 {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--navy-60);
+  line-height: 1.2;
+}
+
+.topbar__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Sized to the name (the size attribute), but free to shrink with the space available. */
+.topbar .title-input {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: -6px;
+  padding: 2px 6px;
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.topbar__name > .icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--navy-60);
+}
+
+.topbar .save-status {
+  flex: none;
+  margin-left: 8px;
+  padding: 0;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Phones: the label and name stack; "Saved" shrinks to its check mark (the words stay
+   available to screen readers through the status text). */
+.app--phone .topbar__title h1 {
+  display: block;
+  font-size: 10px;
+}
+
+.app--phone .topbar .title-input {
+  font-size: 15px;
+  margin-left: -4px;
+  padding: 1px 4px;
+}
+
+.app--phone .topbar .save-status {
+  margin-left: 2px;
+}
+
+.app--phone .topbar .save-status.is-saved,
+.app--phone .topbar .save-status.is-saving {
+  width: 1.2em;
+  overflow: hidden;
+  font-size: 0;
+}
+
+.app--phone .topbar .save-status.is-saved::before {
+  font-size: 13px;
+}
+
+/* Smaller screens: Download is just its icon (it keeps its name for screen readers). */
+@media (max-width: 1180px) {
+  .topbar .export__label {
+    display: none;
+  }
+  .topbar .export .button--primary {
+    width: 44px;
+    padding: 0;
+  }
+}
+
+.app--phone .topbar .export__label {
+  display: none;
+}
+
+/* 90s mode: the label in white pixel type on the title bar, the name in white. */
+:root[data-look="retro"] .topbar .topbar__title h1 {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: #ffe600;
+  text-shadow: 1px 1px 0 #000;
+}
+
+:root[data-look="retro"] .topbar__name > .icon {
+  color: #ffffff;
+}
+
+/* Long names and labels end in "…" rather than running under the buttons. */
+.topbar .topbar__title h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app--phone .topbar .title-input {
+  min-width: 3ch;
+}
+
+/* Phones: no "Auto-saves" note (the ✓ after saving is enough); problems still show. */
+.app--phone .topbar .save-status.is-idle {
+  display: none;
+}
