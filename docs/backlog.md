@@ -4,6 +4,8 @@ Ideas for Tiny Canvas that aren't built yet. Newest first.
 
 ## Retro mode (optional 90s look)
 
+**Status (2026-11-22): the look is built** (`src/retro.css`, the "90s" toggle in the top bar, "90s look" in the phone menu, remembered per device, test-covered). Still to do: the optional sounds below, and a Retro loop for the Lab card.
+
 Owner idea (2026-11-22). Tiny Canvas is pitched as being "for 90s kids who miss Kid Pix and want
 a grown-up version". A Retro mode would lean into that nostalgia as an optional theme, while the
 default look stays clean, accessible and consistent with the portfolio.

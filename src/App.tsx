@@ -116,6 +116,9 @@ const safeStorage = {
   },
 };
 
+/** Where the chosen look (clean or retro) is remembered. */
+const LOOK_KEY = "tiny-canvas:look";
+
 export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   // Created once. A new store per render would re-run every effect that depends on it.
   const [store] = useState(() =>
@@ -176,6 +179,22 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [penOnlySetting, setPenOnlySetting] = useState(true);
   const [penDetected, setPenDetected] = useState(false);
   const [eyedropper, setEyedropper] = useState(false);
+  // Retro mode: an optional 90s skin (src/retro.css), remembered on this device.
+  const [retro, setRetro] = useState(() => {
+    try {
+      return localStorage.getItem(LOOK_KEY) === "retro";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.look = retro ? "retro" : "clean";
+    try {
+      localStorage.setItem(LOOK_KEY, retro ? "retro" : "clean");
+    } catch {
+      // No storage: the look lasts for this visit.
+    }
+  }, [retro]);
   const [smoothing, setSmoothing] = useState<SmoothingLevel>("medium");
   const [showGuides, setShowGuidesState] = useState(() => safeStorage.get(GUIDES_KEY) !== "off");
   const setShowGuides = (value: boolean) => {
@@ -796,6 +815,15 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
         <div className="topbar__actions" role="toolbar" aria-label="Drawing actions">
           {!isPhone && (
             <>
+              <button
+                type="button"
+                className="look-toggle"
+                aria-pressed={retro}
+                onClick={() => setRetro((r) => !r)}
+                title={retro ? "Back to the clean look" : "Try the 90s look"}
+              >
+                90s<span className="visually-hidden"> look</span>
+              </button>
               <ShortcutsHelp popover />
               <button
                 type="button"
@@ -822,6 +850,11 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           {isPhone ? (
             <MoreMenu
               items={[
+                {
+                  label: retro ? "Clean look" : "90s look",
+                  icon: "palette",
+                  onSelect: () => setRetro((r) => !r),
+                },
                 { label: "New drawing", icon: "plus", onSelect: () => void startNew() },
                 {
                   label: "My drawings",

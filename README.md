@@ -6,6 +6,10 @@ themselves in your browser, with no account needed.
 
 ![Tiny Canvas: a kaleidoscope neon drawing on navy, brush tiles on the left, color palette on the right](docs/preview.png)
 
+**90s look:** an optional Retro skin (beveled silver panels, pixel labels, a gradient title bar,
+a dithered stage), switched with the "90s" button (desktop) or "90s look" in the ⋯ menu (phone).
+Same layout and controls; remembered on the device.
+
 ## Features
 
 - **One Draw palette:** brushes in even pairs (Ink, Paint & glow, Playful), then Tools: Line (solid, dashed or

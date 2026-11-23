@@ -1,0 +1,359 @@
+/*
+ * Retro mode: an optional 90s desktop-computer skin. Everything here is scoped to
+ * :root[data-look="retro"], so the default look is untouched. Same layout and controls;
+ * only the surface changes. General era style (silver bevels, pixel type, bright primaries,
+ * dithered patterns), not any one program's look.
+ *
+ * Contrast: black text on silver is 11.6:1; white on the blue and purple fills is above 7:1.
+ * Selected things press in (inverted bevel) as well as changing color.
+ */
+
+:root[data-look="retro"] {
+  --navy: #000000;
+  --navy-80: #1a1a1a;
+  --navy-60: #4a4a4a;
+  --navy-15: #9a9a9a;
+  --navy-08: #d4d4d4;
+  --yellow: #ffe600;
+  --yellow-soft: #fff59a;
+  --pink: #ff3fa4;
+  --paper: #c0c0c0;
+  --white: #c0c0c0;
+
+  --retro-light: #ffffff;
+  --retro-mid: #808080;
+  --retro-dark: #000000;
+  --retro-face: #c0c0c0;
+  --retro-blue: #1d3bd1;
+  --retro-purple: #6b1fd1;
+  --retro-red: #e0102f;
+  --font-pixel: "Silkscreen", "Courier New", monospace;
+
+  /* Raised and pressed bevels. */
+  --bevel-out: inset -2px -2px 0 var(--retro-mid), inset 2px 2px 0 var(--retro-light);
+  --bevel-in: inset 2px 2px 0 var(--retro-mid), inset -2px -2px 0 var(--retro-light);
+  --focus: 0 0 0 2px var(--retro-face), 0 0 0 4px var(--retro-dark);
+
+  --radius: 0px;
+  --radius-small: 0px;
+}
+
+:root[data-look="retro"] body {
+  background-color: #b8b8b8;
+  background-image: repeating-conic-gradient(#c4c4c4 0 25%, #b4b4b4 0 50%);
+  background-size: 4px 4px;
+}
+
+/* ---------- Pixel type for headings and labels ---------- */
+
+:root[data-look="retro"] h1,
+:root[data-look="retro"] .panel__heading,
+:root[data-look="retro"] .draw-group__label,
+:root[data-look="retro"] .draw-tile__label,
+:root[data-look="retro"] .panel-tabs__label,
+:root[data-look="retro"] .button,
+:root[data-look="retro"] .icon-button,
+:root[data-look="retro"] .look-toggle {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Title bar ---------- */
+
+:root[data-look="retro"] .topbar {
+  background: linear-gradient(90deg, var(--retro-purple), var(--retro-blue) 70%, #1388e8);
+  color: #ffffff;
+  border-bottom: 2px solid var(--retro-dark);
+}
+
+:root[data-look="retro"] .topbar h1,
+:root[data-look="retro"] .topbar__home,
+:root[data-look="retro"] .topbar .title-input,
+:root[data-look="retro"] .topbar .save-status,
+:root[data-look="retro"] .topbar__title svg {
+  color: #ffffff;
+}
+
+:root[data-look="retro"] .topbar h1 {
+  text-shadow: 2px 2px 0 var(--retro-dark);
+}
+
+:root[data-look="retro"] .topbar .title-input {
+  background: transparent;
+  border-bottom-color: rgb(255 255 255 / 0.6);
+}
+
+:root[data-look="retro"] .save-status.is-saved {
+  color: #b6ffcf;
+}
+
+/* ---------- Buttons ---------- */
+
+:root[data-look="retro"] .button,
+:root[data-look="retro"] .icon-button,
+:root[data-look="retro"] .look-toggle,
+:root[data-look="retro"] .zoom__button,
+:root[data-look="retro"] .zoom__hand,
+:root[data-look="retro"] .chip {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  background: var(--retro-face);
+  color: var(--retro-dark);
+  box-shadow: var(--bevel-out);
+}
+
+:root[data-look="retro"] .button:hover:not(:disabled),
+:root[data-look="retro"] .icon-button:hover:not(:disabled) {
+  background: #d0d0d0;
+}
+
+:root[data-look="retro"] .button:active:not(:disabled),
+:root[data-look="retro"] .icon-button:active:not(:disabled),
+:root[data-look="retro"] .look-toggle[aria-pressed="true"],
+:root[data-look="retro"] .icon-button[aria-pressed="true"],
+:root[data-look="retro"] .icon-button[aria-expanded="true"] {
+  box-shadow: var(--bevel-in);
+  background: var(--yellow);
+}
+
+:root[data-look="retro"] .button--primary {
+  background: var(--retro-red);
+  color: #ffffff;
+  box-shadow:
+    inset -2px -2px 0 #8c0018,
+    inset 2px 2px 0 #ff7a8e;
+}
+
+:root[data-look="retro"] .button--primary:hover:not(:disabled) {
+  background: #f0213f;
+}
+
+:root[data-look="retro"] button:focus-visible,
+:root[data-look="retro"] a:focus-visible,
+:root[data-look="retro"] input:focus-visible + span,
+:root[data-look="retro"] input:focus-visible {
+  outline: 2px dotted var(--retro-dark);
+  outline-offset: 2px;
+}
+
+/* ---------- Panels and the stage ---------- */
+
+:root[data-look="retro"] .panel {
+  background: var(--retro-face);
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  box-shadow:
+    var(--bevel-out),
+    4px 4px 0 rgb(0 0 0 / 0.35);
+}
+
+:root[data-look="retro"] .stage {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  box-shadow: var(--bevel-in);
+  background-color: #5a26c4;
+  background-image: repeating-conic-gradient(#6b34db 0 25%, #4f1fb3 0 50%);
+  background-size: 6px 6px;
+}
+
+:root[data-look="retro"] .stage__paper {
+  border-radius: 0;
+  box-shadow: 6px 6px 0 rgb(0 0 0 / 0.55);
+}
+
+/* ---------- Tiles: brushes, tools, symmetry, shapes ---------- */
+
+:root[data-look="retro"] .draw-tile,
+:root[data-look="retro"] .symmetry-tile__body,
+:root[data-look="retro"] .shape-menu__kind span {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  background: #d6d6d6;
+  box-shadow: var(--bevel-out);
+}
+
+:root[data-look="retro"] .draw-tile:hover {
+  background: #e2e2e2;
+}
+
+:root[data-look="retro"] .draw-tile[aria-pressed="true"],
+:root[data-look="retro"] .symmetry-tile input:checked + .symmetry-tile__body,
+:root[data-look="retro"] .shape-menu__kind input:checked + span {
+  background: var(--yellow);
+  box-shadow: var(--bevel-in);
+}
+
+:root[data-look="retro"] .draw-tile kbd {
+  border-radius: 0;
+  border-color: var(--retro-dark);
+  background: var(--retro-face);
+}
+
+/* ---------- Tabs and segmented choices ---------- */
+
+:root[data-look="retro"] .panel-tabs__list {
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  gap: 2px;
+}
+
+:root[data-look="retro"] .panel-tabs__tab {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  background: #d6d6d6;
+  box-shadow: var(--bevel-out);
+}
+
+:root[data-look="retro"] .panel-tabs__tab[aria-selected="true"] {
+  background: var(--yellow);
+  box-shadow: var(--bevel-in);
+}
+
+:root[data-look="retro"] .segmented-row__option span,
+:root[data-look="retro"] .segmented__option span {
+  border-radius: 0;
+}
+
+:root[data-look="retro"] .segmented-row__option input:checked + span,
+:root[data-look="retro"] .segmented__option input:checked + span {
+  background: var(--yellow);
+  color: var(--retro-dark);
+  box-shadow: var(--bevel-in);
+}
+
+/* ---------- Colors and sliders ---------- */
+
+:root[data-look="retro"] .swatch span {
+  border-radius: 0;
+  box-shadow: inset 0 0 0 2px var(--retro-dark);
+}
+
+:root[data-look="retro"] input[type="range"] {
+  accent-color: var(--retro-blue);
+}
+
+/* ---------- Menus, popovers, toasts ---------- */
+
+:root[data-look="retro"] .more__menu,
+:root[data-look="retro"] .shortcuts--popover,
+:root[data-look="retro"] .shape-menu--floating,
+:root[data-look="retro"] .toast,
+:root[data-look="retro"] .context-bar {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  background: var(--retro-face);
+  box-shadow:
+    var(--bevel-out),
+    4px 4px 0 rgb(0 0 0 / 0.4);
+}
+
+/* ---------- The toggle itself (shown in both looks) ---------- */
+
+.look-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--navy);
+  border-radius: 999px;
+  background: var(--white);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.look-toggle:hover {
+  background: var(--yellow-soft);
+}
+
+.look-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* ---------- Fit and finish ---------- */
+
+/* The pixel face runs wide: smaller tile and button labels so nothing spills or wraps. */
+:root[data-look="retro"] .draw-tile__label {
+  font-size: 10px;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+:root[data-look="retro"] .topbar .button,
+:root[data-look="retro"] .topbar .look-toggle {
+  font-size: 11px;
+}
+
+:root[data-look="retro"] .panel-tabs__label,
+:root[data-look="retro"] .drawer__tab-label {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* Everything square, nothing rounded. */
+:root[data-look="retro"] .zoom,
+:root[data-look="retro"] .stage__empty,
+:root[data-look="retro"] .picker,
+:root[data-look="retro"] .current-color,
+:root[data-look="retro"] .size-dot,
+:root[data-look="retro"] .size-panel > :first-child {
+  border-radius: 0;
+}
+
+:root[data-look="retro"] .zoom,
+:root[data-look="retro"] .stage__empty {
+  border: 2px solid var(--retro-dark);
+  background: var(--retro-face);
+  box-shadow:
+    var(--bevel-out),
+    3px 3px 0 rgb(0 0 0 / 0.4);
+}
+
+:root[data-look="retro"] .zoom__level {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+}
+
+:root[data-look="retro"] .picker {
+  border: 2px solid var(--retro-dark);
+  background: var(--retro-face);
+  box-shadow: var(--bevel-out);
+  font-family: var(--font-pixel);
+  font-size: 11px;
+}
+
+/* Phone tab bar: raised tabs, the open one pressed in. */
+:root[data-look="retro"] .drawer__bar {
+  background: var(--retro-face);
+  border-top: 2px solid var(--retro-dark);
+  box-shadow: inset 0 2px 0 var(--retro-light);
+}
+
+:root[data-look="retro"] .drawer__tab {
+  border: 2px solid var(--retro-dark);
+  border-radius: 0;
+  background: #d6d6d6;
+  box-shadow: var(--bevel-out);
+}
+
+:root[data-look="retro"] .drawer__tab[aria-expanded="true"] {
+  background: var(--yellow);
+  box-shadow: var(--bevel-in);
+}
+
+:root[data-look="retro"] .drawer__sheet {
+  background: var(--retro-face);
+  border-top: 2px solid var(--retro-dark);
+  border-radius: 0;
+}
+
+/* The wide pixel labels leave no room for shortcut badges; shortcuts are still listed under "?". */
+:root[data-look="retro"] .draw-tile kbd {
+  display: none;
+}

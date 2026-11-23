@@ -589,3 +589,30 @@ test("medium desktop width keeps the header on one row with named icon buttons",
     await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
   }
 });
+
+test("90s look: toggles on, is remembered after a reload, and toggles back off", async ({
+  page,
+  isMobile,
+}) => {
+  const look = () => page.evaluate(() => document.documentElement.dataset.look);
+  expect(await look()).toBe("clean");
+  if (isMobile) {
+    await page.getByRole("button", { name: /^More/ }).click();
+    await page.getByRole("button", { name: "90s look" }).click();
+  } else {
+    const toggle = page.getByRole("button", { name: "90s look" });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  }
+  expect(await look()).toBe("retro");
+  await page.reload();
+  expect(await look()).toBe("retro");
+  if (isMobile) {
+    await page.getByRole("button", { name: /^More/ }).click();
+    await page.getByRole("button", { name: "Clean look" }).click();
+  } else {
+    await page.getByRole("button", { name: "90s look" }).click();
+  }
+  expect(await look()).toBe("clean");
+});
