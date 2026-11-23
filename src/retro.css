@@ -305,6 +305,7 @@
 
 /* In 90s mode the switch itself goes chunky: a square, beveled slider. */
 :root[data-look="retro"] .look-switch {
+  color: var(--retro-dark);
   border: 2px solid var(--retro-dark);
   border-radius: 0;
   background: var(--yellow);
@@ -561,33 +562,16 @@
   }
 }
 
-/* Back out of 90s mode: the clean look ripples out from the switch, smooth and quick. */
-.look-fx--clean {
-  /* Cream in the middle with a ring of yellow, pink and sky at the growing edge. */
-  background: radial-gradient(
-    circle at var(--fx-x) var(--fx-y),
-    #fbfaf6 0 52%,
-    #ffd23f 60%,
-    #ff6fb5 68%,
-    #38bdf8 76%,
-    #fbfaf6 84%
-  );
-  animation: fx-ripple 640ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-
-@keyframes fx-ripple {
-  0% {
-    clip-path: circle(0 at var(--fx-x) var(--fx-y));
-    opacity: 1;
-  }
-  40% {
-    clip-path: circle(150% at var(--fx-x) var(--fx-y));
-    opacity: 1;
-  }
-  100% {
-    clip-path: circle(150% at var(--fx-x) var(--fx-y));
-    opacity: 0;
-  }
+/* Back out of 90s mode: nothing covers the screen; the surfaces ease back to the clean look. */
+:root.look-easing *,
+:root.look-easing *::before,
+:root.look-easing *::after {
+  transition:
+    background-color 420ms ease,
+    color 420ms ease,
+    border-color 420ms ease,
+    border-radius 420ms ease,
+    box-shadow 420ms ease !important;
 }
 
 /* A springy knob in the clean look; a snappy, stepped one in 90s mode. */

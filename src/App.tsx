@@ -187,26 +187,31 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       return false;
     }
   });
-  /** The switch animation in progress: which way, and where the switch is (for the ripple). */
-  const [lookFx, setLookFx] = useState<{ to: "retro" | "clean"; x: number; y: number } | null>(
-    null,
-  );
+  /** Whether the "into 90s mode" animation is playing. */
+  const [lookFx, setLookFx] = useState(false);
   const lookTimers = useRef<number[]>([]);
-  const switchLook = (next: boolean, from?: { x: number; y: number }) => {
+  const switchLook = (next: boolean) => {
     lookTimers.current.forEach((t) => window.clearTimeout(t));
     lookTimers.current = [];
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setLookFx(null);
+      setLookFx(false);
       setRetro(next);
       return;
     }
-    const at = from ?? { x: window.innerWidth / 2, y: 40 };
-    // The look changes while the animation covers the screen, then the cover lifts.
-    const [swap, end] = next ? [520, 1150] : [260, 640];
-    setLookFx({ to: next ? "retro" : "clean", ...at });
+    if (!next) {
+      // Leaving 90s mode: no cover; the surfaces ease back for a moment (see retro.css).
+      const root = document.documentElement;
+      root.classList.add("look-easing");
+      setLookFx(false);
+      setRetro(false);
+      lookTimers.current.push(window.setTimeout(() => root.classList.remove("look-easing"), 500));
+      return;
+    }
+    // Into 90s mode: the look changes while the curtain covers the screen, then it lifts.
+    setLookFx(true);
     lookTimers.current.push(
-      window.setTimeout(() => setRetro(next), swap),
-      window.setTimeout(() => setLookFx(null), end),
+      window.setTimeout(() => setRetro(true), 520),
+      window.setTimeout(() => setLookFx(false), 1150),
     );
   };
   useEffect(() => {
@@ -812,7 +817,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       >
         Skip to canvas
       </a>
-      {lookFx && <LookTransition {...lookFx} />}
+      {lookFx && <LookTransition />}
       <header className="topbar">
         <a className="topbar__home" href={HOME_URL} aria-label={`Back to ${HOME_LABEL}`}>
           <Icon name="arrowLeft" />
@@ -1029,7 +1034,7 @@ function LookSwitch({
   short,
 }: {
   on: boolean;
-  onChange: (on: boolean, from?: { x: number; y: number }) => void;
+  onChange: (on: boolean) => void;
   short: boolean;
 }) {
   return (
@@ -1038,10 +1043,7 @@ function LookSwitch({
       role="switch"
       aria-checked={on}
       className="look-switch"
-      onClick={(e) => {
-        const r = e.currentTarget.getBoundingClientRect();
-        onChange(!on, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
-      }}
+      onClick={() => onChange(!on)}
       title={on ? "Turn off 90s mode" : "Turn on 90s mode"}
     >
       <span className="look-switch__label">
@@ -1056,20 +1058,11 @@ function LookSwitch({
 }
 
 /**
- * The switch animation. Into 90s mode: a dithered pixel curtain drops, a little window says
+ * The switch animation into 90s mode: a dithered pixel curtain drops, a little window says
  * "Loading 90s mode..." while a chunky bar fills, then the curtain lifts on the new look.
- * Back out: the clean look ripples out in a circle from the switch. Decorative only.
+ * (Leaving 90s mode has no cover: the surfaces ease back; see retro.css.) Decorative only.
  */
-function LookTransition({ to, x, y }: { to: "retro" | "clean"; x: number; y: number }) {
-  if (to === "clean") {
-    return (
-      <div
-        className="look-fx look-fx--clean"
-        aria-hidden="true"
-        style={{ "--fx-x": `${x}px`, "--fx-y": `${y}px` } as React.CSSProperties}
-      />
-    );
-  }
+function LookTransition() {
   return (
     <div className="look-fx look-fx--retro" aria-hidden="true">
       <div className="look-fx__window">

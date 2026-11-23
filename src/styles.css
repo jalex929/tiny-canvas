@@ -3556,3 +3556,34 @@ input[type="range"] {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Desktop height: the workspace fills what the top bar leaves ---------- */
+
+/* The workspace used to assume the top bar's height (100vh minus a fixed number), so a top bar
+   that came out a few pixels taller, or wrapped, pushed the zoom controls off the screen. Now
+   the app is exactly one screen tall and the workspace takes the rest, whatever the top bar
+   measures. (Phones lay out separately.) */
+@media (min-width: 901px) {
+  .app {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
+  .workspace,
+  .app .workspace {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/* Keep the top bar on one row up to 1366px: Clear / New / My drawings become named icon
+   buttons a little sooner, now that the 90s mode switch shares the bar. */
+@media (min-width: 1181px) and (max-width: 1366px) {
+  .topbar__actions .button:not(.button--primary) .button__text {
+    display: none;
+  }
+  .topbar__actions .button:not(.button--primary) {
+    width: 40px;
+    padding: 0;
+  }
+}
