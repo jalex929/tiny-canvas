@@ -1,6 +1,6 @@
 # Working in tiny-canvas
 
-Public repo. Read `README.md` and `docs/decisions.md` first.
+Public repo. Read `README.md` and `DECISIONS.md` first.
 
 - Drawing logic lives in `src/engine` (plain TypeScript, no React) and is tested there.
   Every brush must paint in units so that painting in pieces equals painting at once

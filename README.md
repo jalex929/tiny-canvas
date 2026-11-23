@@ -163,7 +163,8 @@ size.
 ## Background
 
 Built by Jay Fox as the first project of a small, private "creative lab" of games and tools,
-then moved to its own repository. Design and engineering notes live in [docs/](docs/).
+then moved to its own repository. **[DECISIONS.md](DECISIONS.md)** walks through what was
+decided and why, and who made each call. More notes live in [docs/](docs/).
 
 ## License
 
