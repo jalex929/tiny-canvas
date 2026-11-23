@@ -2,6 +2,8 @@
 
 Public repo. Read `README.md` and `DECISIONS.md` first.
 
+- Record every product, design or engineering decision in `DECISIONS.md`: what, why, the
+  trade-off, and who made the call (Jay's call / proposed, approved / build default).
 - Drawing logic lives in `src/engine` (plain TypeScript, no React) and is tested there.
   Every brush must paint in units so that painting in pieces equals painting at once
   (a unit test enforces this); keep randomness seeded per unit.
