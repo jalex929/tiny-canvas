@@ -66,9 +66,17 @@ interface DrawingMeta {
   persisted: boolean;
 }
 
-/** Where the back link goes. Set VITE_HOME_URL / VITE_HOME_LABEL at build time to change it. */
-const HOME_URL: string = import.meta.env.VITE_HOME_URL ?? "https://jayfox.design";
-const HOME_LABEL: string = import.meta.env.VITE_HOME_LABEL ?? "jayfox.design";
+/**
+ * Where the back link goes: the Lab page that lists this app. Served from jayfox.design/lab/
+ * the link is relative (so it also works on a local copy); anywhere else it points at the live
+ * Lab. Set VITE_HOME_URL / VITE_HOME_LABEL at build time to change it.
+ */
+const HOME_URL: string =
+  import.meta.env.VITE_HOME_URL ??
+  (typeof location !== "undefined" && location.pathname.includes("/lab/")
+    ? "../"
+    : "https://jayfox.design/lab");
+const HOME_LABEL: string = import.meta.env.VITE_HOME_LABEL ?? "jayfox.design/lab";
 
 const LAST_OPEN_KEY = "tiny-canvas:last-open";
 const GUIDES_KEY = "tiny-canvas:show-guides";
@@ -752,7 +760,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       </a>
       {lookFx && <LookTransition />}
       <header className="topbar">
-        <a className="topbar__home" href={HOME_URL} aria-label={`Back to ${HOME_LABEL}`}>
+        <a className="topbar__home" href={HOME_URL} aria-label="Back to the Lab at jayfox.design">
           <Icon name="arrowLeft" />
           <span className="topbar__home-text">{HOME_LABEL}</span>
         </a>
@@ -774,7 +782,19 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
                 setMeta((m) => (m.title.trim() ? m : { ...m, title: "Untitled drawing" }))
               }
             />
-            <Icon name="pencil" />
+            <button
+              type="button"
+              className="topbar__rename"
+              aria-label="Rename drawing"
+              title="Rename drawing"
+              onClick={() => {
+                const input = document.getElementById("drawing-title") as HTMLInputElement | null;
+                input?.focus();
+                input?.select();
+              }}
+            >
+              <Icon name="pencil" />
+            </button>
             <p
               className={`save-status is-${saveStatus}`}
               role="status"

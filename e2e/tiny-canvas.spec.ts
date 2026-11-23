@@ -610,3 +610,16 @@ test("90s mode: a visible switch that turns on, is remembered after a reload, an
   await page.getByRole("switch", { name: /90s/ }).click();
   await look().toBe("clean");
 });
+
+test("the pencil puts the cursor in the drawing's name, ready to retype", async ({ page }) => {
+  await page.getByRole("button", { name: "Rename drawing" }).click();
+  const title = page.getByLabel("Drawing title");
+  await expect(title).toBeFocused();
+  await page.keyboard.type("Rainbow party");
+  await expect(title).toHaveValue("Rainbow party");
+});
+
+test("the back link goes to the Lab page", async ({ page }) => {
+  const back = page.getByRole("link", { name: "Back to the Lab at jayfox.design" });
+  await expect(back).toHaveAttribute("href", /\/lab/);
+});

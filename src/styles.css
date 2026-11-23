@@ -3718,3 +3718,44 @@ input[type="range"] {
 .app--phone .topbar .save-status.is-idle {
   display: none;
 }
+
+/* The pencil next to the drawing's name: puts the cursor in the name, ready to retype. */
+.topbar__rename {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin-left: -2px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--navy-60);
+  cursor: pointer;
+}
+
+.topbar__rename:hover {
+  background: var(--navy-08);
+  color: var(--navy);
+}
+
+.topbar__rename:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.topbar__rename .icon {
+  width: 16px;
+  height: 16px;
+}
+
+:root[data-look="retro"] .topbar__rename {
+  color: #ffffff;
+  border-radius: 0;
+}
+
+:root[data-look="retro"] .topbar__rename:hover {
+  background: rgb(255 255 255 / 0.18);
+  color: #ffffff;
+}
