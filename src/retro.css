@@ -61,7 +61,8 @@
 /* ---------- Title bar ---------- */
 
 :root[data-look="retro"] .topbar {
-  background: linear-gradient(90deg, var(--retro-purple), var(--retro-blue) 70%, #1388e8);
+  /* Deep all the way across, so white and yellow text pass contrast on every part of it. */
+  background: linear-gradient(90deg, var(--retro-purple), var(--retro-blue));
   color: #ffffff;
   border-bottom: 2px solid var(--retro-dark);
 }
@@ -624,4 +625,27 @@
 :root[data-look="retro"] .app--phone .look-switch {
   border-radius: 0;
   font-size: 8px;
+}
+
+/* Keyboard shortcuts (the "?" popover and help): keys look like little keycaps, black on white. */
+:root[data-look="retro"] .shortcuts kbd,
+:root[data-look="retro"] .shortcuts dt {
+  color: #000000;
+}
+
+:root[data-look="retro"] .shortcuts kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 2px solid #000000;
+  border-radius: 0;
+  background: #ffffff;
+  box-shadow: inset -2px -2px 0 #9a9a9a;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+}
+
+:root[data-look="retro"] .shortcuts dd,
+:root[data-look="retro"] .shortcuts p,
+:root[data-look="retro"] .shortcuts li {
+  color: #000000;
 }

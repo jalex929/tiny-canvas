@@ -36,6 +36,13 @@ import { colorName } from "./ui/palette";
 import { Icon } from "./ui/Icon";
 import { DrawPalette } from "./ui/DrawPalette";
 import { MoreMenu } from "./ui/MoreMenu";
+import {
+  playSound,
+  setSoundEnabled,
+  unlockAudio,
+  type SoundEvent,
+  type SoundSet,
+} from "./ui/sound";
 import { PanelTabs } from "./ui/PanelTabs";
 import { shouldIgnoreShortcut } from "./ui/keyboard";
 import {
@@ -126,6 +133,9 @@ const safeStorage = {
 /** Where the chosen look (clean or retro) is remembered. */
 const LOOK_KEY = "tiny-canvas:look";
 
+/** Where the sound on/off choice is remembered. */
+const SOUND_KEY = "tiny-canvas:sound";
+
 export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   // Created once. A new store per render would re-run every effect that depends on it.
   const [store] = useState(() =>
@@ -163,6 +173,50 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const [symmetry, setSymmetry] = useState<SymmetryMode>("none");
   const [symmetryCount, setSymmetryCount] = useState(6);
   const [tool, setTool] = useState<Tool>("brush");
+
+  // ---- Sound: off unless turned on; the set follows the look (90s or clean) ----
+  const [sound, setSound] = useState(() => safeStorage.get(SOUND_KEY) === "on");
+  const live = useRef({ sound, retro: false, tool: "brush" as Tool, brush: "pen" as BrushId });
+  const sfx = useCallback((event: SoundEvent, set?: SoundSet) => {
+    if (!live.current.sound) return;
+    playSound(event, set ?? (live.current.retro ? "retro" : "clean"));
+  }, []);
+  useEffect(() => {
+    setSoundEnabled(sound);
+    safeStorage.set(SOUND_KEY, sound ? "on" : "off");
+  }, [sound]);
+  const toggleSound = () => {
+    const next = !sound;
+    live.current.sound = next;
+    setSound(next);
+    if (next) {
+      unlockAudio();
+      setSoundEnabled(true);
+      sfx("click");
+    }
+  };
+  // Picking anything in the panels (a brush, tool, color, symmetry, tab or shape) clicks.
+  useEffect(() => {
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (
+        target?.closest(
+          ".draw-tile, .swatch, .symmetry-tile, .panel-tabs__tab, .shape-menu__kind, .segmented-row__option, .segmented__option, .drawer__tab",
+        )
+      )
+        sfx("click");
+    };
+    document.addEventListener("pointerdown", onDown, { capture: true });
+    return () => document.removeEventListener("pointerdown", onDown, { capture: true });
+  }, [sfx]);
+  const onDrawTick = useCallback(
+    (kind: "brush" | "spiro") => {
+      if (kind === "spiro") return sfx("spiro");
+      const b = live.current.brush;
+      sfx(b === "hearts" || b === "sparkle" ? "stamp" : "brush");
+    },
+    [sfx],
+  );
   const [shapeKind, setShapeKind] = useState<ShapeKind>("ellipse");
   const [shapeFilled, setShapeFilled] = useState(false);
   const [spiroWheel, setSpiroWheel] = useState(52);
@@ -203,6 +257,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       setRetro(next);
       return;
     }
+    sfx(next ? "lookOn" : "lookOff", next ? "retro" : "clean");
     if (!next) {
       // Leaving 90s mode: no cover; the surfaces ease back for a moment (see retro.css).
       const root = document.documentElement;
@@ -223,6 +278,9 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
     const timers = lookTimers.current;
     return () => timers.forEach((t) => window.clearTimeout(t));
   }, []);
+  live.current.retro = retro;
+  live.current.tool = tool;
+  live.current.brush = brush;
   useEffect(() => {
     document.documentElement.dataset.look = retro ? "retro" : "clean";
     try {
@@ -352,17 +410,25 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const onCommit = useCallback(
     (stroke: Stroke) => {
       apply({ type: "stroke", stroke: compactStroke(stroke) });
+      const t = live.current.tool;
+      if (t === "shape" || t === "line") sfx("shape");
       // Teach the gesture once, right after someone's first mark on a phone.
       if (isPhone && !safeStorage.get(TAP_TIP_KEY)) {
         safeStorage.set(TAP_TIP_KEY, "shown");
         setMessage({ text: "Tip: tap with two fingers to undo, three to redo." });
       }
     },
-    [apply, isPhone],
+    [apply, isPhone, sfx],
   );
 
-  const doUndo = useCallback(() => setHistory(undo), []);
-  const doRedo = useCallback(() => setHistory(redo), []);
+  const doUndo = useCallback(() => {
+    sfx("undo");
+    setHistory(undo);
+  }, [sfx]);
+  const doRedo = useCallback(() => {
+    sfx("undo");
+    setHistory(redo);
+  }, [sfx]);
   const gestureUndo = useCallback(() => {
     setHistory(undo);
     setMessage({ text: "Undone" });
@@ -373,6 +439,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   }, []);
 
   const clear = () => {
+    sfx("clear");
     apply({ type: "clear" });
     setMessage({ text: "Canvas cleared.", undo: true });
   };
@@ -401,6 +468,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
   const exportImage = async (format: ImageFormat, transparent: boolean) => {
     try {
       await downloadImage(scene, format, meta.title, transparent);
+      sfx("download");
       setMessage({ text: `${format === "jpeg" ? "JPG" : "PNG"} downloaded.` });
     } catch {
       setMessage({ text: "The image couldn't be created. Try PNG, or a different browser." });
@@ -469,6 +537,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       return;
     }
     if (result.kind === "outside") return;
+    sfx("fill");
     apply({
       type: "stroke",
       stroke: {
@@ -742,6 +811,7 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
       onUndoGesture={gestureUndo}
       onRedoGesture={gestureRedo}
       onCommit={onCommit}
+      onDrawTick={onDrawTick}
       onAnnounce={(text) => setMessage({ text })}
     />
   );
@@ -812,6 +882,16 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           <LookSwitch on={retro} onChange={switchLook} short={isPhone} />
           {!isPhone && (
             <>
+              <button
+                type="button"
+                className="icon-button"
+                aria-pressed={sound}
+                onClick={toggleSound}
+                aria-label="Sound effects"
+                title={sound ? "Sound on" : "Sound off"}
+              >
+                <Icon name={sound ? "soundOn" : "soundOff"} />
+              </button>
               <ShortcutsHelp popover />
               <button
                 type="button"
@@ -838,6 +918,11 @@ export function App({ store: injectedStore }: { store?: DrawingStore | null }) {
           {isPhone ? (
             <MoreMenu
               items={[
+                {
+                  label: sound ? "Sound off" : "Sound on",
+                  icon: sound ? "soundOff" : "soundOn",
+                  onSelect: toggleSound,
+                },
                 {
                   label: "Clear canvas",
                   icon: "trash",

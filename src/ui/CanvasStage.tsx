@@ -82,6 +82,8 @@ interface Props {
   onRedoGesture: () => void;
   onCommit: (stroke: Stroke) => void;
   onAnnounce: (message: string) => void;
+  /** Called while drawing (a brush stroke growing, or the spirograph wheel turning), for sound. */
+  onDrawTick?: (kind: "brush" | "spiro") => void;
 }
 
 interface Layers {
@@ -172,6 +174,7 @@ export function CanvasStage({
   onRedoGesture,
   onCommit,
   onAnnounce,
+  onDrawTick,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -576,6 +579,7 @@ export function CanvasStage({
     const last = live.stroke.points[live.stroke.points.length - 1];
     if (last && Math.hypot(point.x - last.x, point.y - last.y) < MIN_SAMPLE_DISTANCE) return;
     live.stroke.points.push(point);
+    onDrawTick?.("brush");
     // Freehand moves the anchor along, so a line started mid-stroke begins from here.
     live.anchor = point;
     live.anchorIndex = live.stroke.points.length - 1;
@@ -631,6 +635,7 @@ export function CanvasStage({
     const from = spiroAngleRef.current;
     if (!live || !ring || to === from) return;
     live.stroke.points.push(...spiroArc(ring, spiro.gear, from, to).slice(1));
+    onDrawTick?.("spiro");
     spiroAngleRef.current = to;
     setSpiroAngle(to);
     requestFrame();

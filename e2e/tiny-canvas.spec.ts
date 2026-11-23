@@ -623,3 +623,62 @@ test("the back link goes to the Lab page", async ({ page }) => {
   const back = page.getByRole("link", { name: "Back to the Lab at jayfox.design" });
   await expect(back).toHaveAttribute("href", /\/lab/);
 });
+
+test("sound effects: off by default, then drawing, tools, undo and clear make sounds in both looks", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop speaker button");
+  await page.addInitScript(() => {
+    const w = window as unknown as { __sounds: number };
+    w.__sounds = 0;
+    type Startable = { start: (...args: unknown[]) => void };
+    for (const proto of [OscillatorNode.prototype, AudioBufferSourceNode.prototype]) {
+      const node = proto as unknown as Startable;
+      const start = node.start;
+      node.start = function (this: unknown, ...args: unknown[]) {
+        w.__sounds++;
+        return start.apply(this, args);
+      };
+    }
+  });
+  await page.reload();
+  const count = () => page.evaluate(() => (window as unknown as { __sounds: number }).__sounds);
+  const speaker = page.getByRole("button", { name: "Sound effects" });
+  await expect(speaker).toHaveAttribute("aria-pressed", "false");
+
+  // Off: drawing is silent.
+  await drawSquiggle(page);
+  expect(await count()).toBe(0);
+
+  // On: each action makes sound.
+  await speaker.click();
+  await expect(speaker).toHaveAttribute("aria-pressed", "true");
+  for (const action of [
+    () => drawSquiggle(page, 0.3),
+    () => page.locator(".draw-tile", { hasText: "Marker" }).first().click(),
+    () => page.getByRole("button", { name: "Undo" }).first().click(),
+    () => page.getByRole("button", { name: "Clear", exact: true }).click(),
+  ]) {
+    const before = await count();
+    await action();
+    await expect.poll(count).toBeGreaterThan(before);
+  }
+
+  // 90s mode uses its own set, and switching looks plays a sound too.
+  const before = await count();
+  await page.getByRole("switch", { name: /90s/ }).click();
+  await expect.poll(count).toBeGreaterThan(before);
+  // Wait for the switch animation to finish, then draw.
+  await page.waitForTimeout(1300);
+  const in90s = await count();
+  await drawSquiggle(page, 0.1);
+  await expect.poll(count).toBeGreaterThan(in90s);
+
+  // Remembered after a reload.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Sound effects" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
