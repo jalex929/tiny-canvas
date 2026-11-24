@@ -22,3 +22,15 @@ default look stays clean, accessible and consistent with the portfolio.
   state never shown by color alone, reduced motion respected, the same layout and tool
   positions so switching looks doesn't relearn the app.
 - **Showcase:** once built, a short Retro-mode loop for the jayfox.design Lab card.
+
+## Phone layout review (Jay, 2026-11-24, not started)
+
+Jay's notes from using it on a phone:
+
+- **Background color is too spread out.** It sits under Effects as a row of swatches and then a
+  separate any-color picker. Idea: one square you tap to choose the background, which opens the
+  swatches and the picker together (like the brush color).
+- **Kaleidoscope ×22 overflows** in the Effects tab at the bottom of the screen.
+- **Bigger question:** is there a clearer way to present the controls on phones, so it's easy to
+  know where everything is? Review the whole mobile layout (tabs, sheets, what lives where)
+  before patching pieces. Check every sheet at 360px and 412px wide for overflow.
